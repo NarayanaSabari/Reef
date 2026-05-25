@@ -1,0 +1,3 @@
+{"from_email":"sarah@acme.com","subject":"Re: the spec — thoughts?","last_direction":"inbound","is_answered":false}
+{"from_email":"bob@acme.com","subject":"lunch tomorrow","last_direction":"outbound","is_answered":true}
+{"from_email":"priya@acme.com","subject":"quick question","last_direction":"inbound","is_answered":true}
