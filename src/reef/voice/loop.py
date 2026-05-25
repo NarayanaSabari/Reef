@@ -7,6 +7,7 @@ class VoiceLoop:
 
     On an Interrupted event it flushes the sink immediately (barge-in).
     Pure orchestration — all I/O is behind the injected ports.
+    The caller owns the session lifecycle (start/close); VoiceLoop only orchestrates an already-started session.
     """
     def __init__(self, source: AudioSource, sink: AudioSink, session: VoiceSession):
         self._source = source
@@ -27,4 +28,4 @@ class VoiceLoop:
             elif isinstance(event, Interrupted):
                 await self._sink.flush()
             elif isinstance(event, TurnComplete):
-                continue
+                pass  # turn finished; nothing to play
