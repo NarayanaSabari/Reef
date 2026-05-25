@@ -19,3 +19,11 @@ def test_settings_missing_key(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     with pytest.raises(ValueError, match="API key"):
         Settings.from_env()
+
+import os
+from pathlib import Path
+from reef.config import default_db_path
+
+def test_default_db_path_absolute_under_home():
+    p = default_db_path()
+    assert os.path.isabs(p) and p.endswith("reef.db") and str(Path.home()) in p

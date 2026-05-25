@@ -1,6 +1,12 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from reef.audio.formats import INPUT_SAMPLE_RATE, OUTPUT_SAMPLE_RATE, CHANNELS
+
+
+def default_db_path() -> str:
+    """Absolute path to Reef's local DB (~/.reef/reef.db) so it doesn't depend on CWD."""
+    return str(Path.home() / ".reef" / "reef.db")
 
 DEFAULT_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
 

@@ -17,3 +17,7 @@ class SpeakerAudioSink:
 
     async def flush(self) -> None:
         self._stream.stop(); self._stream.start()
+
+    async def close(self) -> None:
+        self._stream.stop()
+        self._stream.close()

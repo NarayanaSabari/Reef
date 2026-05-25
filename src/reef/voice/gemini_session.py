@@ -3,6 +3,7 @@ from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
 from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.agents.live_request_queue import LiveRequestQueue
+from google.adk.sessions.base_session_service import BaseSessionService
 from google.genai import types
 from reef.config import Settings
 from reef.memory.store import MemoryStore
@@ -16,7 +17,7 @@ from reef.voice.ports import VoiceEvent, AudioOut, Interrupted, TurnComplete
 class GeminiLiveSession:
     """Adapter over ADK run_live + Gemini Live. Implements the VoiceSession port."""
 
-    def __init__(self, settings: Settings, store: MemoryStore, session_service):
+    def __init__(self, settings: Settings, store: MemoryStore, session_service: BaseSessionService):
         self._settings = settings
         self._coral = build_coral_toolset()
         tools = [*make_memory_tools(store), get_current_time, set_timer, self._coral]

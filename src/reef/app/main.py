@@ -1,15 +1,19 @@
 import asyncio
+from pathlib import Path
 from google.adk.sessions import DatabaseSessionService
-from reef.config import Settings
+from reef.config import Settings, default_db_path
+from reef.agent.coral import ensure_coral_available
 from reef.memory.store import MemoryStore
 from reef.audio.mic_source import MicAudioSource
 from reef.audio.speaker_sink import SpeakerAudioSink
 from reef.voice.gemini_session import GeminiLiveSession
 from reef.voice.loop import VoiceLoop
 
-DB_PATH = "reef.db"
+DB_PATH = default_db_path()
 
 async def main() -> None:
+    ensure_coral_available()
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     settings = Settings.from_env()
     store = MemoryStore(DB_PATH)
     await store.init()
@@ -22,6 +26,7 @@ async def main() -> None:
         await VoiceLoop(source, sink, session).run()
     finally:
         await session.close()
+        await sink.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
