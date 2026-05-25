@@ -10,6 +10,8 @@ dependencies = [
     "sounddevice",
     "aiosqlite",
     "greenlet>=3.5.1",  # transitive SQLAlchemy(async) dep; pinned explicitly (arm64/py3.13 marker gap)
+    "rumps",
+    "pynput",
 ]
 
 [dependency-groups]
