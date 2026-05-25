@@ -1,0 +1,47 @@
+name: gcal
+version: 0.1.0
+dsl_version: 3
+backend: http
+inputs:
+  GOOGLE_TOKEN:
+    kind: secret
+base_url: https://www.googleapis.com/calendar/v3
+auth:
+  type: HeaderAuth
+  headers:
+    - name: Authorization
+      from: template
+      template: "Bearer {{input.GOOGLE_TOKEN}}"
+tables:
+  - name: events
+    description: The user's primary Google Calendar events.
+    request:
+      method: GET
+      path: /calendars/primary/events
+      query:
+        - name: maxResults
+          from: literal
+          value: "50"
+        - name: singleEvents
+          from: literal
+          value: "true"
+        - name: orderBy
+          from: literal
+          value: "startTime"
+    response:
+      rows_path: [items]
+    columns:
+      - name: id
+        type: Utf8
+      - name: summary
+        type: Utf8
+      - name: start_time
+        type: Timestamp
+      - name: end_time
+        type: Timestamp
+      - name: organizer_email
+        type: Utf8
+      - name: attendees
+        type: Json
+test_queries:
+  - SELECT id, summary FROM gcal.events LIMIT 1

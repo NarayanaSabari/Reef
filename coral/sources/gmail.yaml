@@ -1,0 +1,38 @@
+name: gmail
+version: 0.1.0
+dsl_version: 3
+backend: http
+inputs:
+  GOOGLE_TOKEN:
+    kind: secret
+base_url: https://gmail.googleapis.com/gmail/v1
+auth:
+  type: HeaderAuth
+  headers:
+    - name: Authorization
+      from: template
+      template: "Bearer {{input.GOOGLE_TOKEN}}"
+tables:
+  # NOTE: Gmail's messages.list returns ONLY id + threadId. Rich fields (from, subject, date)
+  # require a messages.get per id (N+1), which a flat Coral HTTP table can't express. For the
+  # calendar-email JOIN on Gmail, use the JSONL snapshot route (a snapshot script does
+  # list + get + flatten -> JSONL, then Coral reads it via a jsonl source). This spec exposes
+  # the id list so live connectivity can be verified; enrich via snapshot for real queries.
+  - name: messages
+    description: Gmail message ids (list only; enrich via snapshot for from/subject).
+    request:
+      method: GET
+      path: /users/me/messages
+      query:
+        - name: maxResults
+          from: literal
+          value: "50"
+    response:
+      rows_path: [messages]
+    columns:
+      - name: id
+        type: Utf8
+      - name: thread_id
+        type: Utf8
+test_queries:
+  - SELECT id FROM gmail.messages LIMIT 1
