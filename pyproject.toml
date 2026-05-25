@@ -9,6 +9,7 @@ dependencies = [
     "mcp",
     "sounddevice",
     "aiosqlite",
+    "greenlet>=3.5.1",
 ]
 
 [dependency-groups]
