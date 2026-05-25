@@ -1,6 +1,7 @@
 import os, wave, asyncio, pathlib
 import pytest
 from reef.config import Settings
+from reef.memory.store import MemoryStore
 from reef.voice.ports import AudioOut
 from reef.voice.gemini_session import GeminiLiveSession
 
@@ -15,8 +16,10 @@ def _read_pcm(path: pathlib.Path) -> bytes:
 
 @pytest.mark.skipif(not os.environ.get("GOOGLE_API_KEY"), reason="needs GOOGLE_API_KEY")
 @pytest.mark.skipif(not FIXTURE.exists(), reason="needs tests/fixtures/hello_16k.wav")
-async def test_gemini_session_returns_audio():
-    sess = GeminiLiveSession(Settings.from_env())
+async def test_gemini_session_returns_audio(tmp_path):
+    store = MemoryStore(str(tmp_path / "reef.db"))
+    await store.init()
+    sess = GeminiLiveSession(Settings.from_env(), store, str(tmp_path / "reef.db"))
     await sess.start()
     pcm = _read_pcm(FIXTURE)
     for i in range(0, len(pcm), 640):

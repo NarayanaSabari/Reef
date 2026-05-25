@@ -1,31 +1,41 @@
 from typing import AsyncIterator
 from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import DatabaseSessionService
 from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.agents.live_request_queue import LiveRequestQueue
 from google.genai import types
 from reef.config import Settings
+from reef.memory.store import MemoryStore
+from reef.memory.tools import make_memory_tools
+from reef.voice.instructions import make_instruction_provider
 from reef.voice.ports import VoiceEvent, AudioOut, Interrupted, TurnComplete
-
-_DUMMY_INSTRUCTION = "You are Reef, a concise, friendly voice assistant. Keep replies short."
 
 
 class GeminiLiveSession:
     """Adapter over ADK run_live + Gemini Live. Implements the VoiceSession port."""
 
-    def __init__(self, settings: Settings, instruction: str = _DUMMY_INSTRUCTION):
+    def __init__(self, settings: Settings, store: MemoryStore, db_path: str):
         self._settings = settings
-        self._agent = LlmAgent(model=settings.model, name="reef", instruction=instruction)
-        self._sessions = InMemorySessionService()
+        self._store = store
+        self._agent = LlmAgent(
+            model=settings.model, name="reef",
+            instruction=make_instruction_provider(store),
+            tools=make_memory_tools(store),
+        )
+        self._sessions = DatabaseSessionService(db_url=f"sqlite+aiosqlite:///{db_path}")
         self._runner = Runner(app_name="reef", agent=self._agent, session_service=self._sessions)
         self._queue = LiveRequestQueue()
         self._user_id, self._session_id = "local", "voice"
 
     async def start(self) -> None:
-        await self._sessions.create_session(
+        existing = await self._sessions.get_session(
             app_name="reef", user_id=self._user_id, session_id=self._session_id
         )
+        if existing is None:
+            await self._sessions.create_session(
+                app_name="reef", user_id=self._user_id, session_id=self._session_id
+            )
 
     async def send_audio(self, pcm: bytes) -> None:
         self._queue.send_realtime(
