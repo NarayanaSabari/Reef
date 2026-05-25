@@ -4,10 +4,11 @@ version = "0.1.0"
 description = "Reef — a macOS voice-first founder's-day assistant"
 requires-python = ">=3.11"
 dependencies = [
-    "google-adk>=2.0.0",
+    "google-adk[db]>=2.0.0",
     "google-genai",
     "mcp",
     "sounddevice",
+    "aiosqlite",
 ]
 
 [dependency-groups]
