@@ -8,6 +8,7 @@ def make_memory_tools(store: MemoryStore) -> List[Callable]:
     async def write_memory(key: str, value: str) -> str:
         """Remember a durable preference or fact about the user (persists across sessions).
         Use for things like 'I prefer brief mornings'. key: a short label; value: the detail."""
+        # Phase 2: all tool-written memories use a single kind ("preference").
         await store.write("preference", key, value)
         return f"Remembered: {key} = {value}"
 

@@ -1,7 +1,6 @@
 from typing import AsyncIterator
 from google.adk.agents import LlmAgent
 from google.adk.runners import Runner
-from google.adk.sessions import DatabaseSessionService
 from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.agents.live_request_queue import LiveRequestQueue
 from google.genai import types
@@ -15,15 +14,14 @@ from reef.voice.ports import VoiceEvent, AudioOut, Interrupted, TurnComplete
 class GeminiLiveSession:
     """Adapter over ADK run_live + Gemini Live. Implements the VoiceSession port."""
 
-    def __init__(self, settings: Settings, store: MemoryStore, db_path: str):
+    def __init__(self, settings: Settings, store: MemoryStore, session_service):
         self._settings = settings
-        self._store = store
         self._agent = LlmAgent(
             model=settings.model, name="reef",
             instruction=make_instruction_provider(store),
             tools=make_memory_tools(store),
         )
-        self._sessions = DatabaseSessionService(db_url=f"sqlite+aiosqlite:///{db_path}")
+        self._sessions = session_service
         self._runner = Runner(app_name="reef", agent=self._agent, session_service=self._sessions)
         self._queue = LiveRequestQueue()
         self._user_id, self._session_id = "local", "voice"

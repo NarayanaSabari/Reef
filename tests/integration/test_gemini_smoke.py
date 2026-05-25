@@ -1,5 +1,6 @@
 import os, wave, asyncio, pathlib
 import pytest
+from google.adk.sessions import DatabaseSessionService
 from reef.config import Settings
 from reef.memory.store import MemoryStore
 from reef.voice.ports import AudioOut
@@ -19,7 +20,8 @@ def _read_pcm(path: pathlib.Path) -> bytes:
 async def test_gemini_session_returns_audio(tmp_path):
     store = MemoryStore(str(tmp_path / "reef.db"))
     await store.init()
-    sess = GeminiLiveSession(Settings.from_env(), store, str(tmp_path / "reef.db"))
+    session_service = DatabaseSessionService(db_url=f"sqlite+aiosqlite:///{tmp_path / 'reef.db'}")
+    sess = GeminiLiveSession(Settings.from_env(), store, session_service)
     await sess.start()
     pcm = _read_pcm(FIXTURE)
     for i in range(0, len(pcm), 640):
