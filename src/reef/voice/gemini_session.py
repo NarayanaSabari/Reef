@@ -50,6 +50,7 @@ class GeminiLiveSession:
         ):
             if getattr(event, "interrupted", False):
                 yield Interrupted()
+                continue
             content = getattr(event, "content", None)
             for part in (getattr(content, "parts", None) or []):
                 data = getattr(getattr(part, "inline_data", None), "data", None)
