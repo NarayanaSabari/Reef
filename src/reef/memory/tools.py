@@ -1,7 +1,9 @@
-from typing import Callable, List
+from collections.abc import Callable
+
 from reef.memory.store import MemoryStore
 
-def make_memory_tools(store: MemoryStore) -> List[Callable]:
+
+def make_memory_tools(store: MemoryStore) -> list[Callable]:
     """Build ADK function tools bound to a MemoryStore. The store is captured in
     the closure so it never appears in the tool signatures the model sees."""
 

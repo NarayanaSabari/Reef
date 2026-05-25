@@ -1,4 +1,5 @@
-from tests.fakes.fake_audio import FakeAudioSource, FakeAudioSink
+from tests.fakes.fake_audio import FakeAudioSink, FakeAudioSource
+
 
 async def test_source_yields_chunks_in_order():
     src = FakeAudioSource([b"a", b"b", b"c"])

@@ -1,4 +1,5 @@
-from reef.shell.deeplink import encode_deeplink, decode_deeplink, DeepLink
+from reef.shell.deeplink import DeepLink, decode_deeplink, encode_deeplink
+
 
 def test_encode_decode_roundtrip():
     payload = encode_deeplink("morning_brief", brief="2 PRs, 1 meeting")

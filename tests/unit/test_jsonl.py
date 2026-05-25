@@ -1,4 +1,5 @@
-from reef.snapshot.jsonl import write_jsonl, read_jsonl
+from reef.snapshot.jsonl import read_jsonl, write_jsonl
+
 
 def test_write_then_read_roundtrip(tmp_path):
     p = str(tmp_path / "snap.jsonl")

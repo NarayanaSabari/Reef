@@ -1,17 +1,19 @@
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
+
 from google.adk.agents import LlmAgent
-from google.adk.runners import Runner
-from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.agents.live_request_queue import LiveRequestQueue
+from google.adk.agents.run_config import RunConfig, StreamingMode
+from google.adk.runners import Runner
 from google.adk.sessions.base_session_service import BaseSessionService
 from google.genai import types
+
+from reef.agent.coral import build_coral_toolset
+from reef.agent.tools import get_current_time, set_timer
 from reef.config import Settings
 from reef.memory.store import MemoryStore
 from reef.memory.tools import make_memory_tools
-from reef.agent.tools import get_current_time, set_timer
-from reef.agent.coral import build_coral_toolset
 from reef.voice.instructions import make_instruction_provider
-from reef.voice.ports import VoiceEvent, AudioOut, Interrupted, TurnComplete
+from reef.voice.ports import AudioOut, Interrupted, TurnComplete, VoiceEvent
 
 
 class GeminiLiveSession:
@@ -24,7 +26,7 @@ class GeminiLiveSession:
         self._agent = LlmAgent(
             model=settings.model, name="reef",
             instruction=make_instruction_provider(store),
-            tools=tools,
+            tools=tools,  # type: ignore[arg-type]  # mixed list: Callable + McpToolset; ADK has no stubs
         )
         self._sessions = session_service
         self._runner = Runner(app_name="reef", agent=self._agent, session_service=self._sessions)

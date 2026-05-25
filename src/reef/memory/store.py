@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+
 import aiosqlite
+
 
 @dataclass(frozen=True)
 class Memory:

@@ -1,6 +1,7 @@
 from reef.voice.ports import AudioOut, TurnComplete
 from tests.fakes.fake_voice import FakeVoiceSession
 
+
 async def test_send_audio_records_chunks():
     sess = FakeVoiceSession(events=[])
     await sess.send_audio(b"a")

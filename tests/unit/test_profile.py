@@ -1,11 +1,15 @@
 import pytest
+
 from reef.memory.store import MemoryStore
 from reef.onboarding.profile import save_profile
 from reef.voice.instructions import make_instruction_provider
 
+
 @pytest.fixture
 async def store(tmp_path):
-    s = MemoryStore(str(tmp_path / "reef.db")); await s.init(); return s
+    s = MemoryStore(str(tmp_path / "reef.db"))
+    await s.init()
+    return s
 
 async def test_save_profile_persists_rows(store):
     await save_profile(store, name="Venkat", aliases=["QuantiPeak", "Neuskale"],

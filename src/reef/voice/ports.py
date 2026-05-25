@@ -1,5 +1,7 @@
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Protocol, AsyncIterator, Union, runtime_checkable
+from typing import Protocol, runtime_checkable
+
 
 @dataclass(frozen=True)
 class AudioOut:
@@ -14,7 +16,7 @@ class Interrupted:
 class TurnComplete:
     """The model finished its turn."""
 
-VoiceEvent = Union[AudioOut, Interrupted, TurnComplete]
+VoiceEvent = AudioOut | Interrupted | TurnComplete
 
 @runtime_checkable
 class VoiceSession(Protocol):

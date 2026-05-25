@@ -7,15 +7,16 @@ Session; no real agent runtime or Gemini call is required.
 The `sql` tool's input parameter is named "sql" (confirmed from the raw MCP tool's
 inputSchema: `{"type": "object", "required": ["sql"], ...}`).
 """
-import shutil
 import json
-import pytest
+import shutil
 
-from reef.agent.coral import build_coral_toolset
+import pytest
+from google.adk.agents.invocation_context import InvocationContext
 from google.adk.sessions.in_memory_session_service import InMemorySessionService
 from google.adk.sessions.session import Session
-from google.adk.agents.invocation_context import InvocationContext
 from google.adk.tools import ToolContext
+
+from reef.agent.coral import build_coral_toolset
 
 pytestmark = pytest.mark.integration
 

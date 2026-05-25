@@ -1,10 +1,15 @@
-import os, wave, asyncio, pathlib
+import asyncio
+import os
+import pathlib
+import wave
+
 import pytest
 from google.adk.sessions import DatabaseSessionService
+
 from reef.config import Settings
 from reef.memory.store import MemoryStore
-from reef.voice.ports import AudioOut
 from reef.voice.gemini_session import GeminiLiveSession
+from reef.voice.ports import AudioOut
 
 pytestmark = pytest.mark.integration
 

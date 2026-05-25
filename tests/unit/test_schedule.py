@@ -1,5 +1,7 @@
 from datetime import datetime
+
 from reef.shell.schedule import next_fire_time, seconds_until
+
 
 def test_next_fire_is_today_when_upcoming():
     now = datetime(2026, 5, 25, 6, 0)

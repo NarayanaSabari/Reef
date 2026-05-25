@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -13,7 +12,7 @@ def encode_deeplink(action: str, **context) -> dict:
     return {"reef_action": action, "reef_context": context}
 
 
-def decode_deeplink(userinfo: dict) -> Optional[DeepLink]:
+def decode_deeplink(userinfo: dict) -> DeepLink | None:
     """Parse a notification userInfo payload; None if it isn't a Reef deep-link."""
     action = userinfo.get("reef_action")
     if not action:

@@ -1,9 +1,11 @@
 import asyncio
+
 import pytest
 import sounddevice as sd
-from reef.config import Settings
+
 from reef.audio.mic_source import MicAudioSource
 from reef.audio.speaker_sink import SpeakerAudioSink
+from reef.config import Settings
 
 pytestmark = pytest.mark.integration
 

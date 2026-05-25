@@ -1,6 +1,8 @@
 import pytest
+
 from reef.memory.store import MemoryStore
-from reef.voice.instructions import make_instruction_provider, BASE_INSTRUCTION
+from reef.voice.instructions import BASE_INSTRUCTION, make_instruction_provider
+
 
 @pytest.fixture
 async def store(tmp_path):

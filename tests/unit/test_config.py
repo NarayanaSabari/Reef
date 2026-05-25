@@ -1,5 +1,10 @@
+import os
+from pathlib import Path
+
 import pytest
-from reef.config import Settings
+
+from reef.config import Settings, default_db_path
+
 
 def test_settings_from_env(monkeypatch):
     monkeypatch.setenv("GOOGLE_API_KEY", "abc123")
@@ -20,9 +25,6 @@ def test_settings_missing_key(monkeypatch):
     with pytest.raises(ValueError, match="API key"):
         Settings.from_env()
 
-import os
-from pathlib import Path
-from reef.config import default_db_path
 
 def test_default_db_path_absolute_under_home():
     p = default_db_path()

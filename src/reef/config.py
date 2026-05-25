@@ -1,7 +1,8 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from reef.audio.formats import INPUT_SAMPLE_RATE, OUTPUT_SAMPLE_RATE, CHANNELS
+
+from reef.audio.formats import CHANNELS, INPUT_SAMPLE_RATE, OUTPUT_SAMPLE_RATE
 
 
 def default_db_path() -> str:

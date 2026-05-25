@@ -1,4 +1,5 @@
-from reef.onboarding.config import AppConfig, save_config, load_config
+from reef.onboarding.config import AppConfig, load_config, save_config
+
 
 def test_save_then_load_roundtrip(tmp_path):
     p = str(tmp_path / "config.json")

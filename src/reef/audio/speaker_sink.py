@@ -1,6 +1,9 @@
 import asyncio
+
 import sounddevice as sd
+
 from reef.config import Settings
+
 
 class SpeakerAudioSink:
     """Plays 24 kHz mono int16 PCM; flush() discards queued audio (barge-in)."""
@@ -16,7 +19,8 @@ class SpeakerAudioSink:
         await asyncio.get_running_loop().run_in_executor(None, self._stream.write, pcm)
 
     async def flush(self) -> None:
-        self._stream.stop(); self._stream.start()
+        self._stream.stop()
+        self._stream.start()
 
     async def close(self) -> None:
         self._stream.stop()

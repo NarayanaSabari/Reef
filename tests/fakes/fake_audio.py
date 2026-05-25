@@ -1,7 +1,8 @@
-from typing import AsyncIterator, List
+from collections.abc import AsyncIterator
+
 
 class FakeAudioSource:
-    def __init__(self, chunks: List[bytes]):
+    def __init__(self, chunks: list[bytes]):
         self._chunks = chunks
 
     async def stream(self) -> AsyncIterator[bytes]:
@@ -10,7 +11,7 @@ class FakeAudioSource:
 
 class FakeAudioSink:
     def __init__(self) -> None:
-        self.played: List[bytes] = []
+        self.played: list[bytes] = []
         self.flush_count = 0
 
     async def play(self, pcm: bytes) -> None:

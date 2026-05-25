@@ -1,5 +1,7 @@
 import pytest
+
 from reef.agent.coral import ensure_coral_available
+
 
 def test_raises_when_coral_missing(monkeypatch):
     monkeypatch.setattr("shutil.which", lambda _: None)

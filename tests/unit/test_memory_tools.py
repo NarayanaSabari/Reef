@@ -1,6 +1,8 @@
 import pytest
+
 from reef.memory.store import MemoryStore
 from reef.memory.tools import make_memory_tools
+
 
 @pytest.fixture
 async def store(tmp_path):

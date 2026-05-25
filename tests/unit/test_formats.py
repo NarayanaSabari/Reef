@@ -1,7 +1,11 @@
 from reef.audio.formats import (
-    INPUT_SAMPLE_RATE, OUTPUT_SAMPLE_RATE, CHANNELS, SAMPLE_WIDTH_BYTES,
+    CHANNELS,
+    INPUT_SAMPLE_RATE,
+    OUTPUT_SAMPLE_RATE,
+    SAMPLE_WIDTH_BYTES,
     chunk_bytes_for_ms,
 )
+
 
 def test_format_constants():
     assert INPUT_SAMPLE_RATE == 16000

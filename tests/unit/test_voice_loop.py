@@ -1,8 +1,10 @@
 import asyncio
-from reef.voice.ports import AudioOut, Interrupted, TurnComplete
+
 from reef.voice.loop import VoiceLoop
-from tests.fakes.fake_audio import FakeAudioSource, FakeAudioSink
+from reef.voice.ports import AudioOut, Interrupted, TurnComplete
+from tests.fakes.fake_audio import FakeAudioSink, FakeAudioSource
 from tests.fakes.fake_voice import FakeVoiceSession
+
 
 async def test_forwards_mic_chunks_to_session():
     src = FakeAudioSource([b"a", b"b"])

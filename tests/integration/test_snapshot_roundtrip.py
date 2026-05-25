@@ -1,10 +1,11 @@
+import pathlib
 import shutil
 import subprocess
-import pathlib
 
 import pytest
-from reef.snapshot.runner import snapshot_query
+
 from reef.snapshot.jsonl import read_jsonl
+from reef.snapshot.runner import snapshot_query
 
 pytestmark = pytest.mark.integration
 

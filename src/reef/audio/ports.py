@@ -1,4 +1,6 @@
-from typing import Protocol, AsyncIterator, runtime_checkable
+from collections.abc import AsyncIterator
+from typing import Protocol, runtime_checkable
+
 
 @runtime_checkable
 class AudioSource(Protocol):

@@ -1,11 +1,13 @@
 import asyncio
 from pathlib import Path
+
 from google.adk.sessions import DatabaseSessionService
-from reef.config import Settings, default_db_path
+
 from reef.agent.coral import ensure_coral_available
-from reef.memory.store import MemoryStore
 from reef.audio.mic_source import MicAudioSource
 from reef.audio.speaker_sink import SpeakerAudioSink
+from reef.config import Settings, default_db_path
+from reef.memory.store import MemoryStore
 from reef.voice.gemini_session import GeminiLiveSession
 from reef.voice.loop import VoiceLoop
 

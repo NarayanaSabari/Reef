@@ -1,7 +1,10 @@
 import asyncio
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
+
 import sounddevice as sd
+
 from reef.config import Settings
+
 
 class MicAudioSource:
     """Streams 20 ms 16 kHz mono int16 PCM chunks from the default microphone."""
@@ -9,7 +12,7 @@ class MicAudioSource:
         self._settings = settings
         self._blocksize = settings.input_sample_rate * blocksize_ms // 1000
         self._queue: asyncio.Queue[bytes] = asyncio.Queue()
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     def _callback(self, indata, frames, time_info, status) -> None:
         if self._loop is not None:
@@ -27,4 +30,5 @@ class MicAudioSource:
             while True:
                 yield await self._queue.get()
         finally:
-            stream.stop(); stream.close()
+            stream.stop()
+            stream.close()

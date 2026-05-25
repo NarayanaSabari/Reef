@@ -1,5 +1,7 @@
 import shutil
+
 import pytest
+
 from reef.agent.coral import build_coral_toolset
 
 pytestmark = pytest.mark.integration

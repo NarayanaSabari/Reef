@@ -1,8 +1,8 @@
 """Integration test: proves the showpiece calendar ⋈ email JOIN via real Coral."""
 
+import pathlib
 import shutil
 import subprocess
-import pathlib
 
 import pytest
 

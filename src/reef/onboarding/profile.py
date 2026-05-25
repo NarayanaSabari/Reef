@@ -1,5 +1,6 @@
 from reef.memory.store import MemoryStore
 
+
 async def save_profile(store: MemoryStore, *, name: str, aliases: list[str],
                        github_owner: str, github_repo: str) -> None:
     """Persist the onboarding profile as memory rows so the InstructionProvider injects it."""

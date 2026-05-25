@@ -1,10 +1,12 @@
-from typing import AsyncIterator, List
+from collections.abc import AsyncIterator
+
 from reef.voice.ports import VoiceEvent
 
+
 class FakeVoiceSession:
-    def __init__(self, events: List[VoiceEvent]):
+    def __init__(self, events: list[VoiceEvent]):
         self._events = events
-        self.sent: List[bytes] = []
+        self.sent: list[bytes] = []
         self.closed = False
 
     async def send_audio(self, pcm: bytes) -> None:

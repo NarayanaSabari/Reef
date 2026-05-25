@@ -1,5 +1,6 @@
 import json
 
+
 def write_jsonl(path: str, rows: list[dict]) -> None:
     with open(path, "w") as f:
         for row in rows:

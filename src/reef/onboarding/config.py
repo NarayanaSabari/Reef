@@ -1,6 +1,7 @@
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
+
 
 @dataclass(frozen=True)
 class AppConfig:

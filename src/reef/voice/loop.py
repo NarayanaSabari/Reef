@@ -1,6 +1,8 @@
 import asyncio
-from reef.audio.ports import AudioSource, AudioSink
-from reef.voice.ports import VoiceSession, AudioOut, Interrupted, TurnComplete
+
+from reef.audio.ports import AudioSink, AudioSource
+from reef.voice.ports import AudioOut, Interrupted, TurnComplete, VoiceSession
+
 
 class VoiceLoop:
     """Wires a microphone source to a voice session and plays back its audio.

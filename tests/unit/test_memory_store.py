@@ -1,5 +1,7 @@
 import pytest
-from reef.memory.store import MemoryStore, Memory
+
+from reef.memory.store import Memory, MemoryStore
+
 
 @pytest.fixture
 def db_path(tmp_path):
