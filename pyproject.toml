@@ -15,7 +15,7 @@ dev = ["pytest", "pytest-asyncio"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 markers = [
     "integration: requires network or audio hardware (run with -m integration)",
 ]
