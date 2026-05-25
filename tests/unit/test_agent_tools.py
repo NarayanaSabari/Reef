@@ -9,3 +9,10 @@ def test_get_current_time_returns_iso_like_string():
 def test_get_current_time_matches_now_hour():
     out = get_current_time()
     assert datetime.now().strftime("%H:%M") in out
+
+from reef.agent.tools import set_timer
+
+def test_set_timer_confirms_minutes():
+    out = set_timer(10)
+    assert "10" in out
+    assert re.search(r"\d{1,2}:\d{2}", out)  # mentions a target clock time

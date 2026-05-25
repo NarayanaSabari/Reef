@@ -7,7 +7,7 @@ from google.genai import types
 from reef.config import Settings
 from reef.memory.store import MemoryStore
 from reef.memory.tools import make_memory_tools
-from reef.agent.tools import get_current_time
+from reef.agent.tools import get_current_time, set_timer
 from reef.agent.coral import build_coral_toolset
 from reef.voice.instructions import make_instruction_provider
 from reef.voice.ports import VoiceEvent, AudioOut, Interrupted, TurnComplete
@@ -19,7 +19,7 @@ class GeminiLiveSession:
     def __init__(self, settings: Settings, store: MemoryStore, session_service):
         self._settings = settings
         self._coral = build_coral_toolset()
-        tools = [*make_memory_tools(store), get_current_time, self._coral]
+        tools = [*make_memory_tools(store), get_current_time, set_timer, self._coral]
         self._agent = LlmAgent(
             model=settings.model, name="reef",
             instruction=make_instruction_provider(store),
