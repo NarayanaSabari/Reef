@@ -20,6 +20,11 @@ class MemoryStore:
                 " created_at TEXT NOT NULL DEFAULT (datetime('now')),"
                 " PRIMARY KEY (kind, key))"
             )
+            await db.execute(
+                "CREATE TABLE IF NOT EXISTS log ("
+                " id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL,"
+                " created_at TEXT NOT NULL DEFAULT (datetime('now')))"
+            )
             await db.commit()
 
     async def write(self, kind: str, key: str, value: str) -> None:
@@ -35,3 +40,16 @@ class MemoryStore:
         async with aiosqlite.connect(self._db_path) as db:
             cur = await db.execute("SELECT kind,key,value FROM memory ORDER BY created_at, key")
             return [Memory(kind=r[0], key=r[1], value=r[2]) for r in await cur.fetchall()]
+
+    async def append_log(self, text: str) -> None:
+        async with aiosqlite.connect(self._db_path) as db:
+            await db.execute("INSERT INTO log(text) VALUES(?)", (text,))
+            await db.commit()
+
+    async def recent_logs(self, limit: int = 20) -> list[str]:
+        async with aiosqlite.connect(self._db_path) as db:
+            cur = await db.execute(
+                "SELECT text FROM (SELECT id, text FROM log ORDER BY id DESC LIMIT ?) ORDER BY id ASC",
+                (limit,),
+            )
+            return [r[0] for r in await cur.fetchall()]
