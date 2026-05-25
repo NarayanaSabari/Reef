@@ -1,0 +1,49 @@
+name: calendar
+version: 0.1.0
+dsl_version: 3
+backend: http
+inputs:
+  GRAPH_TOKEN:
+    kind: secret
+base_url: https://graph.microsoft.com/v1.0
+auth:
+  type: HeaderAuth
+  headers:
+    - name: Authorization
+      from: template
+      template: "Bearer {{input.GRAPH_TOKEN}}"
+tables:
+  - name: events
+    description: The signed-in user's calendar events.
+    request:
+      method: GET
+      path: /me/events
+      query:
+        - name: $top
+          from: literal
+          value: "50"
+        - name: $select
+          from: literal
+          value: "id,subject,start,end,organizer,attendees,isAllDay"
+        - name: $orderby
+          from: literal
+          value: "start/dateTime"
+    response:
+      rows_path: [value]
+    columns:
+      - name: id
+        type: Utf8
+      - name: subject
+        type: Utf8
+      - name: start_time
+        type: Timestamp
+      - name: end_time
+        type: Timestamp
+      - name: organizer_email
+        type: Utf8
+      - name: attendees
+        type: Json
+      - name: is_all_day
+        type: Boolean
+test_queries:
+  - SELECT id, subject FROM calendar.events LIMIT 1

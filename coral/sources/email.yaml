@@ -1,0 +1,49 @@
+name: email
+version: 0.1.0
+dsl_version: 3
+backend: http
+inputs:
+  GRAPH_TOKEN:
+    kind: secret
+base_url: https://graph.microsoft.com/v1.0
+auth:
+  type: HeaderAuth
+  headers:
+    - name: Authorization
+      from: template
+      template: "Bearer {{input.GRAPH_TOKEN}}"
+tables:
+  - name: messages
+    description: Recent messages from the signed-in user's mailbox.
+    request:
+      method: GET
+      path: /me/messages
+      query:
+        - name: $top
+          from: literal
+          value: "50"
+        - name: $select
+          from: literal
+          value: "id,subject,from,receivedDateTime,isRead,bodyPreview,conversationId"
+        - name: $orderby
+          from: literal
+          value: "receivedDateTime desc"
+    response:
+      rows_path: [value]
+    columns:
+      - name: id
+        type: Utf8
+      - name: subject
+        type: Utf8
+      - name: from_email
+        type: Utf8
+      - name: received_at
+        type: Timestamp
+      - name: is_read
+        type: Boolean
+      - name: body_preview
+        type: Utf8
+      - name: conversation_id
+        type: Utf8
+test_queries:
+  - SELECT id, subject FROM email.messages LIMIT 1
