@@ -13,17 +13,57 @@ def test_reef_app_module_imports():
 
 
 def test_reef_window_app_imports():
-    """The window app (pywebview) module imports + exposes a sync main()."""
+    """The window app (pywebview) module imports + exposes a sync main(),
+    plus the JS-bridge API surface the new wireframe-based UI calls into."""
     import reef.shell.window_app  # noqa: F401
-    from reef.shell.window_app import Api, main
+    from reef.shell.window_app import UI_PATH, Api, main
     assert callable(main)
     assert not inspect.iscoroutinefunction(main)
     assert callable(Api)
-    # Basic shape of the Api bridge:
+
+    # The HTML asset must exist + carry the design tokens (so a stray rename
+    # of the file or a missing-from-wheel deploy is caught here).
+    assert UI_PATH.is_file(), f"window.html missing at {UI_PATH}"
+    html = UI_PATH.read_text(encoding="utf-8")
+    assert "Instrument Serif" in html
+    assert 'data-route="onboarding"' in html
+    assert "route-chat" in html
+    assert "sheet-backdrop" in html
+
+    # The full JS bridge the new UI calls. Missing any of these would surface
+    # as a silent JS-side reject promise — easier to catch here.
     api = Api()
-    assert hasattr(api, "toggle_mic")
-    assert hasattr(api, "brief_now")
-    assert hasattr(api, "push_event")
+    for name in (
+        "init_route", "toggle_mic", "brief_now", "push_event",
+        "save_profile", "complete_onboarding",
+        "stub_mark_connected", "disconnect_google",
+        "get_settings_snapshot",
+    ):
+        assert callable(getattr(api, name)), f"Api.{name} missing"
+
+
+def test_is_onboarded_sync_handles_missing_and_present(tmp_path):
+    """The sync onboarded-check used by init_route must work without the
+    asyncio loop running — and must not raise on a missing/empty DB."""
+    from reef.shell.window_app import _is_onboarded_sync
+    db = tmp_path / "reef.db"
+    # missing file → False
+    assert _is_onboarded_sync(str(db)) is False
+    # empty file (no schema) → False (sqlite raises OperationalError, swallowed)
+    db.write_bytes(b"")
+    assert _is_onboarded_sync(str(db)) is False
+    # populated schema + onboarded flag → True
+    import sqlite3
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "CREATE TABLE memory (kind TEXT, key TEXT, value TEXT,"
+            " created_at TEXT, PRIMARY KEY(kind, key))"
+        )
+        conn.execute(
+            "INSERT INTO memory VALUES('profile','onboarded','true','now')"
+        )
+        conn.commit()
+    assert _is_onboarded_sync(str(db)) is True
 
 
 def test_cli_wrapper_in_main_is_sync():

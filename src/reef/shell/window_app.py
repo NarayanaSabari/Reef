@@ -1,30 +1,42 @@
-"""Pywebview-based window app for Reef - the macOS-app shell.
+"""Pywebview window app for Reef — the macOS-app shell.
 
-Opens a real window (native WKWebView under the hood) with a chat-style transcript,
-a big mic-toggle button, and live streaming of every transcript / tool call / Coral
-SQL via the trace subscriber. Runs the asyncio voice loop in a daemon thread.
+Native WebView window styled to match the Reef wireframes (calm grayscale on warm
+cream, Geist + Instrument Serif). Three surfaces in one window:
+
+  • Onboarding wizard  — 4 steps (Welcome → Connect Google → Profile → Done)
+  • Chat (timeline)    — V4 Timeline: time / who / content + source badges,
+                         driven by trace events pushed from Python
+  • Settings sheet     — V1 Sidebar overlay (Google · Profile · Memory · Defaults
+                         · Privacy · About), opens over any route
+
+The HTML/CSS/JS lives in `ui/window.html` (kept editable as its own file). This
+module is the Python orchestrator: it loads the HTML, exposes a `js_api` bridge
+that JS calls via `window.pywebview.api.*`, and runs the asyncio voice loop in a
+daemon thread (pywebview owns the main thread).
 
 Run:
-    uv run reef-app                  # this window app (the default `reef-app` script)
-    uv run reef-menubar              # the menubar-only variant
+    uv run reef-app                  # window app (the default `reef-app` script)
+    uv run reef-menubar              # legacy menubar-only mode
     uv run reef                      # terminal mode
 
 Architecture:
 - pywebview owns the main thread (WKWebView event loop).
 - A daemon thread runs `asyncio.run(_async_main(api))` which holds the voice loop.
-- Menu/button callbacks fire on the WebView thread; they cross into asyncio via
-  `loop.call_soon_threadsafe(...)`.
+- JS bridge calls cross into asyncio via `asyncio.run_coroutine_threadsafe`.
 - The trace module is wired to push every line into the WebView DOM via
-  `window.evaluate_js`, so you see the conversation + tool calls + SQL stream in
-  the app, exactly like the terminal trace.
+  `window.evaluate_js`, so transcripts / tool calls / Coral SQL stream into the
+  Timeline as they happen.
 """
 from __future__ import annotations
 
 import asyncio
 import contextlib
 import json
+import sqlite3
+import subprocess
 import threading
 from pathlib import Path
+from typing import Any
 
 import webview
 from google.adk.sessions import DatabaseSessionService
@@ -36,141 +48,171 @@ from reef.audio.speaker_sink import SpeakerAudioSink
 from reef.config import Settings, default_db_path
 from reef.memory.store import MemoryStore
 from reef.observability import trace
+from reef.onboarding.profile import save_profile
 from reef.shell.notify import notify
 from reef.voice.gemini_session import GeminiLiveSession
 from reef.voice.loop import VoiceLoop
 
-# --- the UI (HTML/CSS/JS in one place so deployment is just the .py file) ---
+# ---------------------------------------------------------------------------
 
-HTML = r"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Reef</title>
-<style>
-  :root{
-    --bg:#0f1115; --bg-elev:#1a1d24; --line:#262b35;
-    --text:#e8ebef; --muted:#8b95a7;
-    --you:#5fb3e8; --reef:#c084fc; --tool:#fbbf24; --coral:#34d399; --info:#6b7280;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;background:var(--bg);color:var(--text);
-    font:14px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
-    overflow:hidden}
-  .app{display:grid;grid-template-rows:auto 1fr auto;height:100%}
-  header{padding:14px 20px;background:var(--bg-elev);border-bottom:1px solid var(--line);
-    display:flex;align-items:center;justify-content:space-between}
-  h1{font-size:16px;font-weight:600;letter-spacing:-0.01em}
-  h1 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--coral);
-    margin-right:8px;vertical-align:middle}
-  .status{color:var(--muted);font-size:12px}
-  main{overflow-y:auto;padding:18px 20px;scroll-behavior:smooth}
-  .entry{margin-bottom:10px;display:flex;gap:10px;align-items:flex-start}
-  .label{font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;
-    padding:3px 7px;border-radius:4px;flex-shrink:0;background:#23272f;color:var(--muted);
-    min-width:48px;text-align:center;margin-top:2px}
-  .entry .text{flex:1;word-break:break-word;white-space:pre-wrap}
-  .entry[data-kind="you"] .label{color:var(--you);background:rgba(95,179,232,0.12)}
-  .entry[data-kind="you"] .text{color:#bfdcef}
-  .entry[data-kind="reef"] .label{color:var(--reef);background:rgba(192,132,252,0.12)}
-  .entry[data-kind="reef"] .text{color:#e1ccff}
-  .entry[data-kind="tool"] .label{color:var(--tool);background:rgba(251,191,36,0.10)}
-  .entry[data-kind="tool"] .text{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-    font-size:12px;color:#f3d989}
-  .entry[data-kind="coral"] .label{color:var(--coral);background:rgba(52,211,153,0.10)}
-  .entry[data-kind="coral"] .text{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-    font-size:12px;color:#a7e9c8}
-  .entry[data-kind="info"]{opacity:0.6}
-  .entry[data-kind="info"] .label{color:var(--info)}
-  .entry[data-kind="info"] .text{color:var(--muted);font-size:12px}
-  footer{padding:14px 20px;background:var(--bg-elev);border-top:1px solid var(--line);
-    display:flex;gap:10px;align-items:center;justify-content:center}
-  button{background:#23272f;color:var(--text);border:1px solid var(--line);
-    padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;
-    transition:all .12s ease;font-family:inherit}
-  button:hover{background:#2d323b;border-color:#3a3f4a}
-  button.primary{background:#3b82f6;border-color:#3b82f6;color:white}
-  button.primary:hover{background:#2563eb;border-color:#2563eb}
-  button.primary.listening{background:#dc2626;border-color:#dc2626}
-  button.primary.listening:hover{background:#b91c1c}
-  .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:white;
-    margin-right:8px;animation:pulse 1.2s ease-in-out infinite}
-  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
-  .empty{color:var(--muted);text-align:center;padding:40px 20px;font-size:13px}
-</style>
-</head>
-<body>
-<div class="app">
-  <header>
-    <h1><span class="dot"></span>Reef</h1>
-    <div class="status" id="status">Initializing…</div>
-  </header>
-  <main id="transcript">
-    <div class="empty" id="empty">Click <strong>Talk to Reef</strong> below to start a conversation.</div>
-  </main>
-  <footer>
-    <button id="mic" class="primary" onclick="onMicToggle()">🎤 Talk to Reef</button>
-    <button onclick="window.pywebview.api.brief_now()">📅 Brief now</button>
-  </footer>
-</div>
-<script>
-  let listening = false;
-  function setStatus(s){ document.getElementById('status').textContent = s; }
-  function setListening(on){
-    listening = on;
-    const btn = document.getElementById('mic');
-    if (on){
-      btn.classList.add('listening');
-      btn.innerHTML = '<span class="pulse"></span>Listening — click to stop';
-      setStatus('🎙 listening');
-    } else {
-      btn.classList.remove('listening');
-      btn.textContent = '🎤 Talk to Reef';
-      setStatus('idle');
-    }
-  }
-  async function onMicToggle(){
-    const r = await window.pywebview.api.toggle_mic();
-    setListening(!!r.listening);
-  }
-  window.appendEvent = function(ev){
-    const empty = document.getElementById('empty');
-    if (empty) empty.remove();
-    const main = document.getElementById('transcript');
-    const div = document.createElement('div');
-    div.className = 'entry';
-    div.setAttribute('data-kind', ev.kind);
-    const lbl = document.createElement('span');
-    lbl.className = 'label';
-    lbl.textContent = ev.label;
-    const txt = document.createElement('span');
-    txt.className = 'text';
-    txt.textContent = ev.text;
-    div.appendChild(lbl);
-    div.appendChild(txt);
-    main.appendChild(div);
-    main.scrollTop = main.scrollHeight;
-  }
-</script>
-</body>
-</html>"""
+UI_PATH = Path(__file__).parent / "ui" / "window.html"
+
+
+def _is_onboarded_sync(db_path: str) -> bool:
+    """Synchronous check used by `init_route()` before the async loop is up.
+    True iff the memory store already has the 'onboarded' flag written."""
+    if not Path(db_path).exists():
+        return False
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cur = conn.execute(
+                "SELECT value FROM memory WHERE kind='profile' AND key='onboarded'"
+            )
+            row = cur.fetchone()
+            return bool(row and row[0] == "true")
+    except sqlite3.Error:
+        return False
+
+
+def _coral_version() -> str:
+    """Best-effort `coral --version` for the About pane. Never raises."""
+    try:
+        proc = subprocess.run(
+            ["coral", "--version"], capture_output=True, text=True, timeout=2
+        )
+        return (proc.stdout or proc.stderr).strip() or "unknown"
+    except Exception:  # noqa: BLE001
+        return "not installed"
 
 
 class Api:
-    """Bridge between the WebView (JS) and the asyncio voice loop."""
+    """Bridge between the WebView (JS) and the asyncio voice loop.
+
+    JS calls `window.pywebview.api.<method>(args)`. Each return value is a
+    Promise on the JS side; we either return synchronously or hop into the
+    asyncio loop via `_call_async()`.
+    """
 
     def __init__(self) -> None:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._mic_gate: asyncio.Event | None = None
         self._quit_event: asyncio.Event | None = None
         self._store: MemoryStore | None = None
+        self._settings: Settings | None = None
         self._window: webview.Window | None = None
         self._listening = False
+        self._db_path = default_db_path()
 
     def attach_window(self, window: webview.Window) -> None:
         self._window = window
 
-    # --- called from JS via window.pywebview.api.* ---
+    # --- helpers --------------------------------------------------------
+
+    def _call_async(self, coro, *, default: Any = None, timeout: float = 5.0) -> Any:
+        """Run a coroutine on the voice-loop thread, block until done."""
+        if self._loop is None:
+            return default
+        fut = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        try:
+            return fut.result(timeout=timeout)
+        except Exception as e:  # noqa: BLE001
+            trace.info(f"_call_async error: {type(e).__name__}: {e}")
+            return default
+
+    # --- routing --------------------------------------------------------
+
+    def init_route(self) -> dict:
+        """First JS call after the page is ready. Decides whether to land the
+        user in onboarding or chat based on whether they've completed setup."""
+        onboarded = _is_onboarded_sync(self._db_path)
+        return {"route": "chat" if onboarded else "onboarding", "step": 1}
+
+    # --- onboarding -----------------------------------------------------
+
+    def save_profile(self, data: dict) -> dict:
+        """Persist the profile values from the wizard step 3.
+        Missing fields fall back to env defaults so the agent isn't left
+        nameless if the user blanks the inputs."""
+        async def _go() -> None:
+            assert self._store is not None
+            name = (data.get("name") or "").strip() or "Venkat"
+            owner = (data.get("github_owner") or "").strip() or "NarayanaSabari"
+            repo = (data.get("github_repo") or "").strip() or "Reef"
+            await save_profile(
+                self._store, name=name, aliases=[],
+                github_owner=owner, github_repo=repo,
+            )
+            trace.info(f"profile saved · name={name} · gh={owner}/{repo}")
+        self._call_async(_go())
+        return {"ok": True}
+
+    def stub_mark_connected(self) -> dict:
+        """Wizard 'Connect Google' stub: marks google_connected=true in profile.
+        Real OAuth flow lands in the next spec. This lets the UI shell be
+        exercised end-to-end (and the Settings sheet show 'connected') before
+        the real auth path arrives."""
+        async def _go() -> None:
+            assert self._store is not None
+            await self._store.write("profile", "google_connected", "true")
+            await self._store.write("profile", "google_email", "(stubbed)")
+            trace.info("google connected · stubbed (real OAuth lands next)")
+        self._call_async(_go())
+        return {"ok": True}
+
+    def complete_onboarding(self) -> dict:
+        """Wizard step 4 'Open Reef' — flag the user as onboarded so future
+        launches go straight to chat."""
+        async def _go() -> None:
+            assert self._store is not None
+            await self._store.write("profile", "onboarded", "true")
+            trace.info("onboarding complete")
+        self._call_async(_go())
+        return {"ok": True}
+
+    # --- settings -------------------------------------------------------
+
+    def get_settings_snapshot(self) -> dict:
+        """One-shot read for the Settings sheet. Returns everything the sheet
+        renders so we keep the JS dumb."""
+        async def _go() -> dict:
+            assert self._store is not None
+            rows = await self._store.all()
+            profile = {m.key: m.value for m in rows if m.kind == "profile"}
+            memories = [m.value for m in rows if m.kind == "preference"]
+            return {
+                "google_connected": profile.get("google_connected") == "true",
+                "google_email": profile.get("google_email") or None,
+                "profile": {
+                    "name": profile.get("name"),
+                    "github_owner": profile.get("github_owner"),
+                    "github_repo": profile.get("github_repo"),
+                },
+                "memories": memories,
+                "model": (self._settings.model if self._settings else None),
+                "ptt_key": __import__("os").environ.get("REEF_PTT_KEY"),
+                "brief_after_seconds": __import__("os").environ.get(
+                    "REEF_BRIEF_AFTER_SECONDS"
+                ),
+                "coral_version": _coral_version(),
+            }
+        return self._call_async(_go(), default={
+            "google_connected": False, "profile": {}, "memories": [],
+            "model": None, "coral_version": "unknown",
+        })
+
+    def disconnect_google(self) -> dict:
+        """Wipe the (stubbed) google connection. The real implementation will
+        also clear keychain entries and remove the gmail/gcal/gdrive/contacts
+        Coral sources."""
+        async def _go() -> None:
+            assert self._store is not None
+            await self._store.write("profile", "google_connected", "false")
+            await self._store.write("profile", "google_email", "")
+            trace.info("google disconnected (stubbed)")
+        self._call_async(_go())
+        return {"ok": True}
+
+    # --- mic / brief (preserved from previous version) ------------------
 
     def toggle_mic(self) -> dict:
         if self._loop is None or self._mic_gate is None:
@@ -178,11 +220,11 @@ class Api:
         if self._listening:
             self._loop.call_soon_threadsafe(self._mic_gate.clear)
             self._listening = False
-            trace.info("mic gate -> OFF (window)")
+            trace.info("mic gate -> OFF")
         else:
             self._loop.call_soon_threadsafe(self._mic_gate.set)
             self._listening = True
-            trace.info("mic gate -> ON (window)")
+            trace.info("mic gate -> ON")
         return {"listening": self._listening}
 
     def brief_now(self) -> None:
@@ -197,7 +239,7 @@ class Api:
 
         asyncio.run_coroutine_threadsafe(_fire(), self._loop)
 
-    # --- internal: push trace events to the WebView ---
+    # --- internal: push trace events to the WebView ---------------------
 
     def push_event(self, kind: str, label: str, text: str) -> None:
         if self._window is None:
@@ -205,6 +247,9 @@ class Api:
         payload = json.dumps({"kind": kind, "label": label, "text": text})
         with contextlib.suppress(Exception):
             self._window.evaluate_js(f"window.appendEvent({payload});")
+
+
+# ---------------------------------------------------------------------------
 
 
 async def _async_main(api: Api) -> None:
@@ -216,6 +261,8 @@ async def _async_main(api: Api) -> None:
     settings = Settings.from_env()
     store = MemoryStore(db)
     await store.init()
+    # Seed defaults so a user who skips onboarding still has a working profile.
+    # Onboarding (when completed) overwrites these.
     await _seed_default_profile_if_missing(store)
     session_service = DatabaseSessionService(db_url=f"sqlite+aiosqlite:///{db}")
 
@@ -223,13 +270,13 @@ async def _async_main(api: Api) -> None:
     api._mic_gate = asyncio.Event()        # muted at startup
     api._quit_event = asyncio.Event()
     api._store = store
+    api._settings = settings
 
     source = MicAudioSource(settings, gate=api._mic_gate)
     sink = SpeakerAudioSink(settings)
     session = GeminiLiveSession(settings, store, session_service)
     await session.start()
     trace.info(f"window app ready — model={settings.model}")
-    api.push_event("info", "info", "Ready. Click 'Talk to Reef' to start.")
 
     loop_task = asyncio.create_task(VoiceLoop(source, sink, session).run())
     quit_task = asyncio.create_task(api._quit_event.wait())
@@ -245,29 +292,28 @@ async def _async_main(api: Api) -> None:
 
 
 def _on_window_closed(api: Api) -> None:
-    """User closed the window — tell the agent thread to wind down."""
     if api._loop is not None and api._quit_event is not None:
         api._loop.call_soon_threadsafe(api._quit_event.set)
 
 
 def main() -> None:
     api = Api()
+    html = UI_PATH.read_text(encoding="utf-8")
     window = webview.create_window(
         "Reef",
-        html=HTML,
+        html=html,
         js_api=api,
         width=820, height=640,
         min_size=(560, 420),
-        background_color="#0f1115",
+        background_color="#f0eee9",
         text_select=True,
     )
     api.attach_window(window)
     window.events.closed += lambda: _on_window_closed(api)
 
-    # Stream trace lines into the WebView (mirrors stdout output).
+    # Stream every trace line into the WebView Timeline.
     trace.set_sink(lambda kind, label, text: api.push_event(kind, label, text))
 
-    # Run the asyncio voice loop in a daemon thread; webview owns the main thread.
     def _run_agent() -> None:
         try:
             asyncio.run(_async_main(api))

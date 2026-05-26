@@ -55,8 +55,11 @@ Three modes, same underlying voice loop:
 ```bash
 export $(grep -v '^#' .env | xargs)
 
-# 1) Window app (default) — a native WebView window with chat-style transcript,
-#    "Talk to Reef" button, "Brief now", and live streaming of every turn / tool / Coral SQL.
+# 1) Window app (default) — native WebView styled to the Reef wireframes
+#    (calm grayscale on cream, Geist + Instrument Serif). On first launch a
+#    4-step onboarding wizard runs (Welcome → Connect Google → Profile → Done);
+#    after that, the chat-timeline view with the voice orb in the header.
+#    Press ⌘, (or click ⚙) to open the Settings sheet.
 uv run reef-app
 
 # 2) Menubar — same engine, just an icon in the menu bar (no window).

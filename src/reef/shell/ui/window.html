@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reef</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+/* ─── Reef design tokens (mirrors common.jsx REEF{}) ──────────────────────── */
+:root{
+  --ink:#111111; --ink2:#2a2a2a; --ink3:#555555; --ink4:#888888; --ink5:#b8b8b8;
+  --rule:#dcdcdc; --rule2:#e8e8e8;
+  --paper:#ffffff; --paper2:#f5f4f1; --paper3:#eceae5;
+  --bg:#f0eee9;
+  --accent:#0a0a0a;
+  --serif:'Instrument Serif','Times New Roman',serif;
+  --sans:'Geist',-apple-system,system-ui,sans-serif;
+  --mono:'Geist Mono','IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+
+/* ─── Atoms ───────────────────────────────────────────────────────────────── */
+.mono{font-family:var(--mono);font-size:11px;color:var(--ink4);letter-spacing:.02em}
+.serif{font-family:var(--serif);color:var(--ink);line-height:1.1}
+.sans{font-family:var(--sans);font-size:13px;color:var(--ink2);line-height:1.45}
+
+.hotkey{display:inline-flex;gap:4px;align-items:center;font-family:var(--mono);font-size:10px}
+.hotkey kbd{display:inline-flex;align-items:center;justify-content:center;
+  min-width:18px;height:18px;padding:0 5px;
+  border:1px solid var(--rule);border-bottom-width:2px;
+  border-radius:4px;background:var(--paper);color:var(--ink3);font:inherit}
+
+.tag{display:inline-flex;align-items:center;gap:4px;
+  padding:2px 7px;border:1px solid var(--rule2);border-radius:100px;
+  font-family:var(--mono);font-size:10px;color:var(--ink4);background:var(--paper)}
+
+.source-badge{display:inline-flex;align-items:center;gap:5px;
+  padding:2px 7px 2px 6px;border:1px solid var(--rule);border-radius:4px;
+  font-family:var(--mono);font-size:9.5px;color:var(--ink3);
+  background:var(--paper);letter-spacing:.04em}
+.source-badge::before{content:'';width:6px;height:6px;background:var(--ink);
+  display:inline-block;border-radius:1px}
+
+.wordmark{font-family:var(--serif);font-style:italic;letter-spacing:-.01em;color:var(--ink)}
+
+button.primary{padding:9px 16px;background:var(--ink);color:var(--paper);
+  border:none;border-radius:7px;font-size:12px;font-weight:500;letter-spacing:.01em}
+button.primary:hover{background:#000}
+button.primary:disabled{background:var(--ink5);cursor:not-allowed}
+button.ghost{padding:9px 16px;background:var(--paper);color:var(--ink);
+  border:1px solid var(--rule);border-radius:7px;font-size:12px;font-weight:500}
+button.ghost:hover{background:var(--paper2)}
+button.linkish{background:none;border:none;color:var(--ink4);font-family:var(--mono);
+  font-size:11px;padding:6px;letter-spacing:.02em}
+button.linkish:hover{color:var(--ink2)}
+
+/* ─── App shell ───────────────────────────────────────────────────────────── */
+#app{position:absolute;inset:0;display:flex;flex-direction:column}
+.route{position:absolute;inset:0;display:none;flex-direction:column}
+#app[data-route="onboarding"] .route-onboarding{display:flex}
+#app[data-route="chat"] .route-chat{display:flex}
+
+/* ─── ROUTE: ONBOARDING (Conversational · step N of 4) ────────────────────── */
+.route-onboarding{padding:64px 96px;background:var(--bg)}
+.onb-step{display:none;flex-direction:column;height:100%}
+.onb-step.active{display:flex}
+.onb-eyebrow{font-family:var(--mono);font-size:10px;color:var(--ink4);
+  text-transform:lowercase;letter-spacing:.04em}
+.onb-title{font-family:var(--serif);font-size:42px;line-height:1.05;color:var(--ink);
+  margin-top:14px}
+.onb-sub{font-family:var(--sans);font-size:14px;color:var(--ink3);
+  line-height:1.55;max-width:520px;margin-top:14px}
+.onb-card{margin-top:32px;padding:18px 20px;border:1px solid var(--rule);
+  border-radius:12px;background:var(--paper2);
+  display:flex;align-items:center;gap:16px}
+.onb-card .icon{width:44px;height:44px;border-radius:10px;
+  border:1px dashed var(--ink4);display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;color:var(--ink3);background:var(--paper)}
+.onb-card .body{flex:1;display:flex;flex-direction:column;gap:4px}
+.onb-card .name{font-family:var(--sans);font-size:14px;font-weight:500;color:var(--ink)}
+.onb-card .meta{font-family:var(--mono);font-size:10.5px;color:var(--ink4)}
+
+.onb-actions{margin-top:auto;display:flex;align-items:center;justify-content:space-between}
+.onb-dots{display:flex;gap:6px}
+.onb-dot{width:7px;height:7px;border-radius:50%;background:var(--ink5)}
+.onb-dot.on{background:var(--ink)}
+.onb-skip{font-family:var(--mono);font-size:11px;color:var(--ink4);
+  background:none;border:none;letter-spacing:.02em}
+.onb-skip:hover{color:var(--ink2)}
+
+.onb-input{margin-top:22px;display:flex;flex-direction:column;gap:14px;max-width:440px}
+.onb-input label{font-family:var(--mono);font-size:10.5px;color:var(--ink4);
+  text-transform:lowercase;letter-spacing:.04em}
+.onb-input input{font-family:var(--sans);font-size:14px;color:var(--ink);
+  border:1px solid var(--rule);border-radius:8px;
+  padding:10px 12px;background:var(--paper);outline:none}
+.onb-input input:focus{border-color:var(--ink2)}
+
+.onb-scope-list{margin-top:18px;border:1px solid var(--rule);border-radius:10px;
+  background:var(--paper);max-width:520px}
+.onb-scope-list .row{padding:11px 14px;display:flex;align-items:center;gap:10px;
+  border-top:1px solid var(--rule2)}
+.onb-scope-list .row:first-child{border-top:none}
+.onb-scope-list .row .check{width:14px;height:14px;border:1.5px solid var(--ink);
+  border-radius:3px;display:flex;align-items:center;justify-content:center}
+.onb-scope-list .row .check::after{content:'';display:block;width:8px;height:4px;
+  border-left:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);
+  transform:rotate(-45deg);margin-top:-2px}
+.onb-scope-list .row .name{font-family:var(--sans);font-size:13.5px;color:var(--ink)}
+.onb-scope-list .row .meta{font-family:var(--mono);font-size:10px;color:var(--ink4);margin-left:auto}
+
+/* ─── ROUTE: CHAT (V4 · Timeline + V1 · Orb in header) ────────────────────── */
+.route-chat{background:var(--bg)}
+.chat-header{padding:20px 28px 14px;display:flex;align-items:center;gap:18px}
+.chat-header .orb-wrap{position:relative;width:44px;height:44px;flex-shrink:0}
+.orb{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.orb-ring{position:absolute;border-radius:50%;border:1px solid var(--ink5);opacity:.4}
+.orb-core{position:absolute;width:14px;height:14px;border-radius:50%;background:var(--ink)}
+.orb[data-state="listening"] .orb-ring{border-color:var(--ink);animation:pulse 1.4s ease-out infinite}
+.orb[data-state="listening"] .orb-ring:nth-child(2){animation-delay:.35s}
+.orb[data-state="listening"] .orb-ring:nth-child(3){animation-delay:.7s}
+.orb[data-state="thinking"] .orb-ring{border-style:dashed;border-color:var(--ink3)}
+.orb[data-state="speaking"] .orb-ring{border-color:var(--ink2);animation:breathe 1.6s ease-in-out infinite}
+.orb[data-state="interrupted"] .orb-core{background:transparent;border:2px solid var(--ink)}
+@keyframes pulse{0%{transform:scale(.85);opacity:.9}100%{transform:scale(1.4);opacity:0}}
+@keyframes breathe{0%,100%{transform:scale(.95);opacity:.6}50%{transform:scale(1.15);opacity:1}}
+
+.chat-header .meta{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.chat-header .wordmark{font-size:22px}
+.chat-header .state-line{display:flex;align-items:center;gap:6px;font-family:var(--mono);
+  font-size:10.5px;color:var(--ink4);letter-spacing:.04em}
+.chat-header .state-dot{width:6px;height:6px;border-radius:50%;background:var(--ink5)}
+.chat-header[data-state="listening"] .state-dot,
+.chat-header[data-state="speaking"] .state-dot{background:var(--ink)}
+.chat-header .gear{margin-left:auto;width:30px;height:30px;border-radius:7px;
+  background:transparent;border:1px solid transparent;display:flex;align-items:center;
+  justify-content:center;font-family:var(--mono);font-size:13px;color:var(--ink3)}
+.chat-header .gear:hover{border-color:var(--rule);background:var(--paper)}
+
+/* Timeline */
+.timeline{flex:1;overflow-y:auto;padding:8px 28px 28px;scroll-behavior:smooth}
+.timeline .date{text-align:center;margin-bottom:18px}
+.tl-stream{position:relative;padding-left:24px}
+.tl-stream::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:1px;
+  background:var(--rule)}
+.tl-entry{position:relative;margin-bottom:18px}
+.tl-entry .dot{position:absolute;left:-23px;top:5px;width:11px;height:11px;
+  border-radius:50%;border:1.5px solid var(--ink);background:var(--paper)}
+.tl-entry[data-kind="reef"] .dot{background:var(--ink)}
+.tl-entry .meta{display:flex;gap:8px;align-items:baseline;margin-bottom:4px}
+.tl-entry .time,.tl-entry .who{font-family:var(--mono);font-size:9.5px;color:var(--ink4);
+  letter-spacing:.04em;text-transform:lowercase}
+.tl-entry .who{color:var(--ink3)}
+.tl-entry .body{word-break:break-word;white-space:pre-wrap}
+
+.tl-entry[data-kind="you"] .body{font-family:var(--sans);font-size:13.5px;color:var(--ink)}
+.tl-entry[data-kind="reef"] .body{font-family:var(--serif);font-style:italic;
+  font-size:18px;line-height:1.35;color:var(--ink)}
+.tl-entry[data-kind="tool"] .body,
+.tl-entry[data-kind="coral"] .body{font-family:var(--mono);font-size:11px;color:var(--ink3);
+  background:var(--paper);padding:6px 10px;border:1px solid var(--rule2);border-radius:6px;
+  display:inline-block;margin-top:2px}
+.tl-entry[data-kind="coral"] .badges{margin-top:6px;display:flex;gap:4px}
+.tl-entry[data-kind="info"] .body{font-family:var(--mono);font-size:10.5px;color:var(--ink4)}
+
+.tl-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;gap:14px;color:var(--ink4);padding:40px 20px;text-align:center}
+.tl-empty .wordmark{font-size:36px;color:var(--ink2)}
+.tl-empty .hint{font-family:var(--serif);font-size:18px;color:var(--ink3);
+  font-style:italic;max-width:360px;line-height:1.3}
+
+/* Chat footer */
+.chat-footer{padding:14px 28px 22px;display:flex;align-items:center;gap:10px;
+  border-top:1px solid var(--rule)}
+.chat-footer .talk{padding:10px 18px;border-radius:8px;background:var(--ink);
+  color:var(--paper);border:none;font-size:13px;font-weight:500;display:inline-flex;
+  align-items:center;gap:8px}
+.chat-footer .talk.listening{background:var(--paper);color:var(--ink);
+  border:1px solid var(--ink)}
+.chat-footer .talk .pulse{width:7px;height:7px;border-radius:50%;background:var(--ink);
+  animation:dot-pulse 1.2s ease-in-out infinite}
+@keyframes dot-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.chat-footer .brief{padding:10px 14px;border-radius:8px;background:var(--paper);
+  color:var(--ink);border:1px solid var(--rule);font-size:12px}
+.chat-footer .brief:hover{background:var(--paper2)}
+.chat-footer .hotkey-hint{margin-left:auto;color:var(--ink4)}
+
+/* ─── Settings sheet (overlay over chat) ─────────────────────────────────── */
+.sheet-backdrop{position:absolute;inset:0;background:rgba(17,17,17,.18);
+  opacity:0;pointer-events:none;transition:opacity .18s ease;z-index:50}
+.sheet{position:absolute;left:50%;top:50%;transform:translate(-50%,-46%);
+  width:760px;max-width:calc(100% - 40px);height:520px;max-height:calc(100% - 40px);
+  background:var(--paper);border-radius:14px;border:1px solid var(--rule);
+  box-shadow:0 1px 0 rgba(0,0,0,.06),0 24px 56px -16px rgba(0,0,0,.2);
+  overflow:hidden;opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;
+  z-index:51;display:flex}
+#app.settings-open .sheet-backdrop{opacity:1;pointer-events:auto}
+#app.settings-open .sheet{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+
+.sheet aside{width:200px;background:var(--paper2);border-right:1px solid var(--rule);
+  padding:20px 12px;display:flex;flex-direction:column;gap:2px}
+.sheet aside .eyebrow{font-family:var(--mono);font-size:10px;color:var(--ink4);
+  display:block;margin:0 8px 10px;letter-spacing:.04em}
+.sheet aside .nav-item{padding:7px 10px;border-radius:6px;font-size:12.5px;
+  color:var(--ink2);background:transparent;border:1px solid transparent;
+  font-family:var(--sans);text-align:left}
+.sheet aside .nav-item:hover{background:var(--paper)}
+.sheet aside .nav-item.active{background:var(--paper);border-color:var(--rule);color:var(--ink)}
+
+.sheet section{flex:1;padding:24px 28px;overflow-y:auto;position:relative}
+.sheet section h2{font-family:var(--serif);font-size:26px;font-weight:400;color:var(--ink);
+  margin-bottom:4px}
+.sheet section .sub{font-family:var(--sans);font-size:12.5px;color:var(--ink3);
+  margin-bottom:18px;display:block}
+.sheet .close{position:absolute;top:14px;right:14px;width:24px;height:24px;
+  border-radius:6px;background:transparent;border:none;color:var(--ink3);
+  font-family:var(--mono);font-size:14px}
+.sheet .close:hover{background:var(--paper2);color:var(--ink)}
+
+.sheet-card{border:1px solid var(--rule);border-radius:10px;background:var(--paper);
+  padding:14px 16px;margin-bottom:12px}
+.sheet-card .row{display:flex;align-items:center;gap:12px}
+.sheet-card .row + .row{margin-top:10px;padding-top:10px;border-top:1px solid var(--rule2)}
+.sheet-card .label{font-family:var(--mono);font-size:10px;color:var(--ink4);
+  text-transform:lowercase;letter-spacing:.04em;min-width:80px}
+.sheet-card .val{font-family:var(--sans);font-size:13px;color:var(--ink)}
+.sheet-card .val.dim{color:var(--ink3)}
+.sheet-card .actions{margin-left:auto;display:flex;gap:8px}
+
+.scope-pill{display:inline-block;padding:2px 8px;margin:2px 4px 2px 0;
+  border:1px solid var(--rule);border-radius:100px;
+  font-family:var(--mono);font-size:10px;color:var(--ink3);background:var(--paper)}
+
+.list-rows{border:1px solid var(--rule);border-radius:10px;background:var(--paper);
+  overflow:hidden}
+.list-rows .row{padding:11px 14px;display:flex;align-items:center;gap:12px;
+  border-top:1px solid var(--rule2)}
+.list-rows .row:first-child{border-top:none}
+.list-rows .row .idx{font-family:var(--mono);font-size:10px;color:var(--ink4);min-width:18px}
+.list-rows .row .text{font-family:var(--sans);font-size:13px;color:var(--ink);flex:1}
+.list-rows .empty{padding:14px;font-family:var(--mono);font-size:11px;color:var(--ink4);
+  text-align:center}
+</style>
+</head>
+<body>
+<div id="app" data-route="onboarding">
+
+  <!-- ─── ONBOARDING ROUTE (4-step wizard) ──────────────────────────────── -->
+  <div class="route route-onboarding">
+
+    <!-- Step 1: Welcome -->
+    <div class="onb-step active" data-step="1">
+      <span class="onb-eyebrow">step 1 of 4</span>
+      <div class="onb-title">Hello. I'm Reef.</div>
+      <div class="onb-sub">
+        A voice-first agent that remembers you and answers across your scattered tools —
+        email, calendar, drive, github — through Coral, locally. Nothing leaves this Mac.
+      </div>
+      <div class="onb-actions">
+        <div class="onb-dots">
+          <span class="onb-dot on"></span><span class="onb-dot"></span>
+          <span class="onb-dot"></span><span class="onb-dot"></span>
+        </div>
+        <button class="primary" onclick="onbAdvance()">Get started →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Connect Google -->
+    <div class="onb-step" data-step="2">
+      <span class="onb-eyebrow">step 2 of 4</span>
+      <div class="onb-title">Let's connect Google.</div>
+      <div class="onb-sub">
+        One sign-in unlocks email, calendar, drive, and contacts. Reef reads them through Coral,
+        locally. You can disconnect anytime in Settings.
+      </div>
+      <div class="onb-card">
+        <span class="icon">G</span>
+        <div class="body">
+          <span class="name">Google account</span>
+          <span class="meta">gmail · calendar · drive · contacts — read-only</span>
+        </div>
+        <button class="primary" id="onb-connect-btn" onclick="onbConnectGoogle()">Connect Google</button>
+      </div>
+      <div class="onb-scope-list" aria-label="scopes">
+        <div class="row"><span class="check"></span><span class="name">Gmail</span><span class="meta">read-only</span></div>
+        <div class="row"><span class="check"></span><span class="name">Calendar</span><span class="meta">read-only</span></div>
+        <div class="row"><span class="check"></span><span class="name">Drive</span><span class="meta">read-only · metadata + files</span></div>
+        <div class="row"><span class="check"></span><span class="name">Contacts</span><span class="meta">read-only</span></div>
+      </div>
+      <div class="onb-actions">
+        <div class="onb-dots">
+          <span class="onb-dot on"></span><span class="onb-dot on"></span>
+          <span class="onb-dot"></span><span class="onb-dot"></span>
+        </div>
+        <button class="onb-skip" onclick="onbAdvance()">Skip for now →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Profile -->
+    <div class="onb-step" data-step="3">
+      <span class="onb-eyebrow">step 3 of 4</span>
+      <div class="onb-title">A few things about you.</div>
+      <div class="onb-sub">Reef uses these to address you and to know where your code lives.</div>
+      <div class="onb-input">
+        <div>
+          <label for="onb-name">your name</label><br>
+          <input id="onb-name" type="text" placeholder="Venkat" autocomplete="off">
+        </div>
+        <div>
+          <label for="onb-gh-owner">github owner</label><br>
+          <input id="onb-gh-owner" type="text" placeholder="NarayanaSabari" autocomplete="off">
+        </div>
+        <div>
+          <label for="onb-gh-repo">github repo</label><br>
+          <input id="onb-gh-repo" type="text" placeholder="Reef" autocomplete="off">
+        </div>
+      </div>
+      <div class="onb-actions">
+        <div class="onb-dots">
+          <span class="onb-dot on"></span><span class="onb-dot on"></span>
+          <span class="onb-dot on"></span><span class="onb-dot"></span>
+        </div>
+        <button class="primary" onclick="onbSaveProfile()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Done -->
+    <div class="onb-step" data-step="4">
+      <span class="onb-eyebrow">step 4 of 4</span>
+      <div class="onb-title">All set.</div>
+      <div class="onb-sub">
+        Press the talk button — or <span class="hotkey"><kbd>⌘</kbd><kbd>Space</kbd></span> if you've
+        bound a hotkey — and try:
+        <em style="font-family:var(--serif);font-size:17px;color:var(--ink);display:block;margin-top:14px">
+          "Who am I meeting today that I still owe a reply to?"
+        </em>
+      </div>
+      <div class="onb-actions">
+        <div class="onb-dots">
+          <span class="onb-dot on"></span><span class="onb-dot on"></span>
+          <span class="onb-dot on"></span><span class="onb-dot on"></span>
+        </div>
+        <button class="primary" onclick="onbFinish()">Open Reef →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── CHAT ROUTE (Timeline + Orb header) ───────────────────────────── -->
+  <div class="route route-chat">
+    <header class="chat-header" data-state="idle">
+      <div class="orb-wrap">
+        <div class="orb" id="orb" data-state="idle">
+          <span class="orb-ring" style="inset:0"></span>
+          <span class="orb-ring" style="inset:6px"></span>
+          <span class="orb-ring" style="inset:12px"></span>
+          <span class="orb-core"></span>
+        </div>
+      </div>
+      <div class="meta">
+        <span class="wordmark">Reef</span>
+        <span class="state-line"><span class="state-dot"></span><span id="state-label">idle · press the button to speak</span></span>
+      </div>
+      <button class="gear" title="Settings (⌘,)" onclick="openSettings()">⚙</button>
+    </header>
+
+    <main class="timeline" id="timeline">
+      <div class="tl-empty" id="tl-empty">
+        <span class="wordmark">Reef</span>
+        <span class="hint">Click <em style="font-style:italic">Talk to Reef</em> below — I'm here when you want me.</span>
+      </div>
+      <div class="tl-stream" id="tl-stream" style="display:none"></div>
+    </main>
+
+    <footer class="chat-footer">
+      <button class="talk" id="talk-btn" onclick="onMicToggle()">
+        <span class="dot-static" style="width:7px;height:7px;border-radius:50%;background:currentColor"></span>
+        Talk to Reef
+      </button>
+      <button class="brief" onclick="window.pywebview.api.brief_now()">Brief now</button>
+      <span class="hotkey-hint hotkey"><kbd>⌘</kbd><kbd>Space</kbd></span>
+    </footer>
+  </div>
+
+  <!-- ─── Settings sheet (overlay) ────────────────────────────────────── -->
+  <div class="sheet-backdrop" onclick="closeSettings()"></div>
+  <div class="sheet" role="dialog" aria-label="Settings">
+    <aside>
+      <span class="eyebrow">settings</span>
+      <button class="nav-item active" data-pane="google">Google</button>
+      <button class="nav-item" data-pane="profile">Profile</button>
+      <button class="nav-item" data-pane="memory">Memory</button>
+      <button class="nav-item" data-pane="defaults">Defaults</button>
+      <button class="nav-item" data-pane="privacy">Privacy</button>
+      <button class="nav-item" data-pane="about">About</button>
+    </aside>
+    <section>
+      <button class="close" onclick="closeSettings()">✕</button>
+
+      <div class="pane" data-pane="google" style="display:block">
+        <h2>Google</h2>
+        <span class="sub">One sign-in connects email, calendar, drive, and contacts.</span>
+        <div class="sheet-card" id="google-card">
+          <div class="row">
+            <span class="label">status</span>
+            <span class="val dim" id="google-status">not connected</span>
+            <span class="actions">
+              <button class="primary" id="google-connect-btn" onclick="openConnect()">Connect Google</button>
+              <button class="ghost" id="google-disconnect-btn" onclick="disconnectGoogle()" style="display:none">Disconnect</button>
+            </span>
+          </div>
+          <div class="row">
+            <span class="label">scopes</span>
+            <span class="val">
+              <span class="scope-pill">gmail</span>
+              <span class="scope-pill">calendar</span>
+              <span class="scope-pill">drive</span>
+              <span class="scope-pill">contacts</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="profile" style="display:none">
+        <h2>Profile</h2>
+        <span class="sub">What Reef calls you and where your code lives.</span>
+        <div class="sheet-card">
+          <div class="row"><span class="label">name</span><span class="val" id="set-name">—</span></div>
+          <div class="row"><span class="label">github owner</span><span class="val" id="set-gh-owner">—</span></div>
+          <div class="row"><span class="label">github repo</span><span class="val" id="set-gh-repo">—</span></div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="memory" style="display:none">
+        <h2>Memory</h2>
+        <span class="sub">What Reef remembers about you. Memory is local SQLite — nothing leaves this Mac.</span>
+        <div class="list-rows" id="memory-rows">
+          <div class="empty">no memories yet · they'll appear here as Reef learns</div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="defaults" style="display:none">
+        <h2>Defaults</h2>
+        <span class="sub">Voice model, scheduled brief, push-to-talk hotkey.</span>
+        <div class="sheet-card">
+          <div class="row"><span class="label">voice model</span><span class="val" id="set-model">—</span></div>
+          <div class="row"><span class="label">push-to-talk</span><span class="val dim" id="set-ptt">unset · REEF_PTT_KEY</span></div>
+          <div class="row"><span class="label">morning brief</span><span class="val dim" id="set-brief">unset · REEF_BRIEF_AFTER_SECONDS</span></div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="privacy" style="display:none">
+        <h2>Privacy</h2>
+        <span class="sub">How Reef handles your data.</span>
+        <div class="sheet-card">
+          <div class="row"><span class="label">storage</span><span class="val">local SQLite · <span class="val dim">~/.reef/reef.db</span></span></div>
+          <div class="row"><span class="label">tokens</span><span class="val">macOS Keychain · encrypted at rest</span></div>
+          <div class="row"><span class="label">network</span><span class="val">only Gemini Live + Google APIs you connect</span></div>
+        </div>
+      </div>
+
+      <div class="pane" data-pane="about" style="display:none">
+        <h2>About</h2>
+        <span class="sub">made for venkat · hackathon build</span>
+        <div class="sheet-card">
+          <div class="row"><span class="label">version</span><span class="val">0.1 · wireframes alpha</span></div>
+          <div class="row"><span class="label">audio</span><span class="val dim">16kHz in · 24kHz out · half-duplex</span></div>
+          <div class="row"><span class="label">coral</span><span class="val dim" id="set-coral-ver">checking…</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+// ═════════════════════════════════════════════════════════════════════════
+//   Reef · window controller
+//   • Routes between onboarding / chat
+//   • Renders timeline entries (V4) from trace events pushed by Python
+//   • Drives orb / state line on the header
+//   • Settings sheet open/close + pane switching
+// ═════════════════════════════════════════════════════════════════════════
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const app = $('#app');
+
+// ─── routes ─────────────────────────────────────────────────────────────
+function setRoute(r){ app.setAttribute('data-route', r); }
+
+// ─── onboarding ─────────────────────────────────────────────────────────
+let onbStep = 1;
+function showOnbStep(n){
+  $$('.onb-step').forEach(el => el.classList.toggle('active', +el.dataset.step === n));
+  onbStep = n;
+}
+function onbAdvance(){ if (onbStep < 4) showOnbStep(onbStep + 1); }
+function onbConnectGoogle(){
+  // Real OAuth flow lands next. For now the button advances with a stubbed state
+  // so the UI shell is testable end-to-end.
+  const btn = $('#onb-connect-btn');
+  btn.disabled = true; btn.textContent = 'Connecting…';
+  setTimeout(() => {
+    btn.textContent = 'Connected ✓';
+    setTimeout(onbAdvance, 400);
+    // Tell python to mark "connected" so the next launch skips onboarding.
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.stub_mark_connected){
+      window.pywebview.api.stub_mark_connected();
+    }
+  }, 700);
+}
+function onbSaveProfile(){
+  const name = $('#onb-name').value.trim();
+  const owner = $('#onb-gh-owner').value.trim();
+  const repo = $('#onb-gh-repo').value.trim();
+  if (window.pywebview && window.pywebview.api){
+    window.pywebview.api.save_profile({name, github_owner: owner, github_repo: repo});
+  }
+  onbAdvance();
+}
+function onbFinish(){
+  if (window.pywebview && window.pywebview.api){
+    window.pywebview.api.complete_onboarding();
+  }
+  setRoute('chat');
+}
+
+// ─── settings sheet ─────────────────────────────────────────────────────
+function openSettings(){
+  app.classList.add('settings-open');
+  // populate every time so disconnect/refresh stays accurate
+  if (window.pywebview && window.pywebview.api){
+    window.pywebview.api.get_settings_snapshot().then(renderSettings);
+  }
+}
+function closeSettings(){ app.classList.remove('settings-open'); }
+function openConnect(){ closeSettings(); setRoute('onboarding'); showOnbStep(2); }
+function disconnectGoogle(){
+  if (window.pywebview && window.pywebview.api){
+    window.pywebview.api.disconnect_google().then(() => openSettings());
+  }
+}
+$$('.sheet aside .nav-item').forEach(btn => btn.addEventListener('click', () => {
+  $$('.sheet aside .nav-item').forEach(b => b.classList.toggle('active', b === btn));
+  const pane = btn.dataset.pane;
+  $$('.sheet .pane').forEach(p => p.style.display = (p.dataset.pane === pane) ? 'block' : 'none');
+}));
+
+function renderSettings(s){
+  // Google
+  if (s.google_connected){
+    $('#google-status').textContent = 'connected as ' + (s.google_email || '—');
+    $('#google-status').classList.remove('dim');
+    $('#google-connect-btn').style.display = 'none';
+    $('#google-disconnect-btn').style.display = '';
+  } else {
+    $('#google-status').textContent = 'not connected';
+    $('#google-status').classList.add('dim');
+    $('#google-connect-btn').style.display = '';
+    $('#google-disconnect-btn').style.display = 'none';
+  }
+  // Profile
+  $('#set-name').textContent = s.profile.name || '—';
+  $('#set-gh-owner').textContent = s.profile.github_owner || '—';
+  $('#set-gh-repo').textContent = s.profile.github_repo || '—';
+  // Memory
+  const mem = $('#memory-rows');
+  if (s.memories && s.memories.length){
+    mem.innerHTML = s.memories.map((m, i) =>
+      `<div class="row"><span class="idx">0${i+1}</span><span class="text">${escapeHtml(m)}</span></div>`
+    ).join('');
+  }
+  // Defaults
+  $('#set-model').textContent = s.model || '—';
+  if (s.ptt_key) $('#set-ptt').textContent = s.ptt_key;
+  if (s.brief_after_seconds) $('#set-brief').textContent = `+${s.brief_after_seconds}s after launch`;
+  // About
+  $('#set-coral-ver').textContent = s.coral_version || 'unknown';
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ─── chat / timeline ────────────────────────────────────────────────────
+let entryCount = 0;
+function appendEvent(ev){
+  // ev = {kind, label, text}
+  const empty = $('#tl-empty');
+  if (empty) empty.style.display = 'none';
+  const stream = $('#tl-stream');
+  stream.style.display = 'block';
+
+  // Drive header orb based on event kind
+  if (ev.kind === 'you') setVoiceState('listening');
+  else if (ev.kind === 'tool' || ev.kind === 'coral') setVoiceState('thinking');
+  else if (ev.kind === 'reef') setVoiceState('speaking');
+
+  const entry = document.createElement('div');
+  entry.className = 'tl-entry';
+  entry.setAttribute('data-kind', ev.kind);
+  const time = new Date().toTimeString().slice(0,5);
+  const labelLower = ev.label.toLowerCase();
+  entry.innerHTML = `
+    <span class="dot"></span>
+    <div class="meta">
+      <span class="time">${time}</span>
+      <span class="who">${escapeHtml(labelLower)}</span>
+    </div>
+    <div class="body">${escapeHtml(ev.text)}</div>
+  `;
+  stream.appendChild(entry);
+  const tl = $('#timeline'); tl.scrollTop = tl.scrollHeight;
+  entryCount++;
+}
+window.appendEvent = appendEvent;   // python pushes here
+
+let voiceStateTimer = null;
+function setVoiceState(state){
+  const orb = $('#orb');
+  const header = $('.chat-header');
+  if (!orb || !header) return;
+  orb.setAttribute('data-state', state);
+  header.setAttribute('data-state', state);
+  const labels = {
+    idle:'idle · press the button to speak',
+    listening:'listening',
+    thinking:'thinking',
+    speaking:'speaking',
+    interrupted:'interrupted',
+  };
+  $('#state-label').textContent = labels[state] || state;
+  // auto-return to idle after burst of activity
+  clearTimeout(voiceStateTimer);
+  if (state !== 'idle' && state !== 'listening'){
+    voiceStateTimer = setTimeout(() => setVoiceState(listening ? 'listening' : 'idle'), 1800);
+  }
+}
+window.setVoiceState = setVoiceState;
+
+let listening = false;
+async function onMicToggle(){
+  if (!window.pywebview || !window.pywebview.api) return;
+  const r = await window.pywebview.api.toggle_mic();
+  listening = !!r.listening;
+  const btn = $('#talk-btn');
+  if (listening){
+    btn.classList.add('listening');
+    btn.innerHTML = '<span class="pulse"></span> Listening — click to stop';
+    setVoiceState('listening');
+  } else {
+    btn.classList.remove('listening');
+    btn.innerHTML = '<span class="dot-static" style="width:7px;height:7px;border-radius:50%;background:currentColor"></span> Talk to Reef';
+    setVoiceState('idle');
+  }
+}
+window.onMicToggle = onMicToggle;
+
+// ─── boot ───────────────────────────────────────────────────────────────
+// Python decides the initial route via init_route() after the WebView is ready.
+window.addEventListener('pywebviewready', async () => {
+  const init = await window.pywebview.api.init_route();
+  setRoute(init.route);
+  if (init.route === 'onboarding') showOnbStep(init.step || 1);
+});
+
+// Keyboard niceties
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettings(); }
+  if (e.key === 'Escape' && app.classList.contains('settings-open')) closeSettings();
+});
+</script>
+</body>
+</html>
