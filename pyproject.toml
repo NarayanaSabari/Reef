@@ -12,11 +12,13 @@ dependencies = [
     "greenlet>=3.5.1",  # transitive SQLAlchemy(async) dep; pinned explicitly (arm64/py3.13 marker gap)
     "rumps",
     "pynput",
+    "pywebview",   # native WKWebView window for the chat-style app UI
 ]
 
 [project.scripts]
-reef       = "reef.app.main:cli"       # terminal mode (kept for headless dev)
-reef-app   = "reef.shell.app:main"     # menubar app mode
+reef          = "reef.app.main:cli"           # terminal mode (kept for headless dev / trace recording)
+reef-app      = "reef.shell.window_app:main"  # window app (native WebView, chat-style UI)
+reef-menubar  = "reef.shell.app:main"         # legacy menubar-only variant
 
 [dependency-groups]
 # py2app currently breaks against setuptools 80+ ("install_requires is no longer supported");

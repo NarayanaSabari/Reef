@@ -50,16 +50,19 @@ uv run pytest -m integration  # integration (needs coral installed; Gemini test 
 
 ## Run the app
 
-Two modes, same underlying voice loop:
+Three modes, same underlying voice loop:
 
 ```bash
 export $(grep -v '^#' .env | xargs)
 
-# 1) Menubar app (recommended) — shows a "Reef" icon in the menu bar.
-#    Click → "Talk to Reef" toggles the mic; "Morning brief now" fires a notification.
+# 1) Window app (default) — a native WebView window with chat-style transcript,
+#    "Talk to Reef" button, "Brief now", and live streaming of every turn / tool / Coral SQL.
 uv run reef-app
 
-# 2) Terminal — same voice loop with a live trace of every transcript / tool / Coral SQL.
+# 2) Menubar — same engine, just an icon in the menu bar (no window).
+uv run reef-menubar
+
+# 3) Terminal — same voice loop with a live trace of every transcript / tool / Coral SQL.
 uv run reef        # or:  uv run python -m reef.app.main
 ```
 

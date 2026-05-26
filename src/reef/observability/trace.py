@@ -9,9 +9,21 @@ to stdout with ANSI colors when stdout is a TTY; falls back to plain text otherw
 from __future__ import annotations
 
 import sys
+from typing import Callable, Optional
 
 _enabled = False
 _use_color = sys.stdout.isatty()
+# Optional subscriber - the window app installs one to mirror trace lines into the UI.
+# Signature: sink(kind, label, text) -> None. Exceptions are swallowed so the UI can't
+# break the app.
+_sink: Optional[Callable[[str, str, str], None]] = None
+
+
+def set_sink(callback: Optional[Callable[[str, str, str], None]]) -> None:
+    """Install (or remove) a callback that mirrors every emitted trace line.
+    Used by the window app to stream events into the WebView."""
+    global _sink
+    _sink = callback
 
 _RESET = "\033[0m"
 _COLORS = {
@@ -41,6 +53,11 @@ def _line(color_key: str, label: str, text: str) -> None:
     else:
         prefix = f"[{label}]"
     print(f"{prefix} {text}", flush=True)
+    if _sink is not None:
+        try:
+            _sink(color_key, label, text)
+        except Exception:
+            pass   # never let a sink break the app
 
 
 def you(text: str) -> None:
