@@ -31,6 +31,10 @@ async def test_gemini_session_returns_audio(tmp_path):
     pcm = _read_pcm(FIXTURE)
     for i in range(0, len(pcm), 640):
         await sess.send_audio(pcm[i:i + 640])
+    # 1.5s of silence so the server VAD reliably marks end-of-speech.
+    silence = b"\x00\x00" * 320   # 20 ms of int16 mono silence at 16 kHz
+    for _ in range(75):
+        await sess.send_audio(silence)
     got_audio = False
     async def consume():
         nonlocal got_audio
@@ -38,6 +42,8 @@ async def test_gemini_session_returns_audio(tmp_path):
             if isinstance(ev, AudioOut) and ev.data:
                 got_audio = True
                 return
-    await asyncio.wait_for(consume(), timeout=25)
+    # 60s covers ADK setup (DB session + Coral MCP spawn + tool registration) +
+    # Gemini Live first-response latency. Direct google-genai responds in ~6s; ADK adds setup overhead.
+    await asyncio.wait_for(consume(), timeout=60)
     await sess.close()
     assert got_audio
