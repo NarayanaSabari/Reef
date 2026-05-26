@@ -12,6 +12,7 @@ from reef.agent.tools import get_current_time, set_timer
 from reef.config import Settings
 from reef.memory.store import MemoryStore
 from reef.memory.tools import make_memory_tools
+from reef.observability import trace
 from reef.voice.instructions import make_instruction_provider
 from reef.voice.ports import AudioOut, Interrupted, TurnComplete, VoiceEvent
 
@@ -56,11 +57,29 @@ class GeminiLiveSession:
             live_request_queue=self._queue,
             run_config=run_config,
         ):
+            # --- terminal trace: surface what's happening in real time ---
+            # Only emit finalized transcripts (skip partials) to keep output clean.
+            if not getattr(event, "partial", False):
+                input_tr = getattr(event, "input_transcription", None)
+                if input_tr is not None:
+                    trace.you(getattr(input_tr, "text", "") or "")
+                output_tr = getattr(event, "output_transcription", None)
+                if output_tr is not None:
+                    trace.reef(getattr(output_tr, "text", "") or "")
+
             if getattr(event, "interrupted", False):
                 yield Interrupted()
                 continue
+
             content = getattr(event, "content", None)
             for part in (getattr(content, "parts", None) or []):
+                # Tool call/response trace + the standard audio passthrough.
+                fc = getattr(part, "function_call", None)
+                if fc is not None and getattr(fc, "name", None):
+                    trace.tool_call(fc.name, dict(getattr(fc, "args", None) or {}))
+                fr = getattr(part, "function_response", None)
+                if fr is not None and getattr(fr, "name", None):
+                    trace.tool_response(fr.name, getattr(fr, "response", None))
                 data = getattr(getattr(part, "inline_data", None), "data", None)
                 if data:
                     yield AudioOut(data)

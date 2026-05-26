@@ -9,6 +9,7 @@ from reef.audio.mic_source import MicAudioSource
 from reef.audio.speaker_sink import SpeakerAudioSink
 from reef.config import Settings, default_db_path
 from reef.memory.store import MemoryStore
+from reef.observability import trace
 from reef.onboarding.profile import save_profile
 from reef.voice.gemini_session import GeminiLiveSession
 from reef.voice.loop import VoiceLoop
@@ -33,9 +34,11 @@ async def _seed_default_profile_if_missing(store: MemoryStore) -> None:
 
 
 async def main() -> None:
+    trace.enable()
     ensure_coral_available()
     Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     settings = Settings.from_env()
+    trace.info(f"starting reef (model={settings.model}, db={DB_PATH})")
     store = MemoryStore(DB_PATH)
     await store.init()
     await _seed_default_profile_if_missing(store)
@@ -44,9 +47,11 @@ async def main() -> None:
     sink = SpeakerAudioSink(settings)
     session = GeminiLiveSession(settings, store, session_service)
     await session.start()
+    trace.info("voice loop active — speak to me (Ctrl+C to quit)")
     try:
         await VoiceLoop(source, sink, session).run()
     finally:
+        trace.info("shutting down…")
         await session.close()
         await sink.close()
 

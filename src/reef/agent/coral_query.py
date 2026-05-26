@@ -15,6 +15,8 @@ test that verifies the MCP transport works.
 import json
 import subprocess
 
+from reef.observability import trace
+
 
 def coral_query(sql: str) -> str:
     """Run a read-only SQL query against the user's connected Coral sources and return rows.
@@ -24,14 +26,25 @@ def coral_query(sql: str) -> str:
     email/calendar sources. Always write ONE read-only SQL statement. If you need to discover
     tables, query `SELECT schema_name, table_name FROM coral.tables WHERE schema_name='<src>' LIMIT 50`.
     """
+    trace.coral_sql(sql)
     try:
         proc = subprocess.run(
             ["coral", "sql", "--format", "json", sql],
             capture_output=True, text=True, timeout=15,
         )
     except subprocess.TimeoutExpired:
-        return "Error: coral query timed out after 15 seconds."
+        msg = "Error: coral query timed out after 15 seconds."
+        trace.coral_result(msg)
+        return msg
     if proc.returncode != 0:
-        return f"Error: {proc.stderr.strip() or 'coral sql failed'}"
-    # Return the raw JSON rows; the model can read them directly.
-    return proc.stdout.strip() or "[]"
+        msg = f"Error: {proc.stderr.strip() or 'coral sql failed'}"
+        trace.coral_result(msg[:120])
+        return msg
+    result = proc.stdout.strip() or "[]"
+    # Summarize row count if the output is a JSON array.
+    try:
+        rows = json.loads(result)
+        trace.coral_result(f"{len(rows)} row(s)" if isinstance(rows, list) else "ok")
+    except Exception:
+        trace.coral_result("ok")
+    return result
