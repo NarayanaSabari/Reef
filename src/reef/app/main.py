@@ -47,7 +47,7 @@ async def main() -> None:
     sink = SpeakerAudioSink(settings)
     session = GeminiLiveSession(settings, store, session_service)
     await session.start()
-    trace.info("voice loop active — speak to me (Ctrl+C to quit)")
+    trace.info(f"voice loop active — session={session._session_id} — speak to me (Ctrl+C to quit)")
     try:
         await VoiceLoop(source, sink, session).run()
     finally:

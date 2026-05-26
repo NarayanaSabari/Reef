@@ -1,3 +1,5 @@
+import time
+import uuid
 from collections.abc import AsyncIterator
 
 from google.adk.agents import LlmAgent
@@ -33,7 +35,12 @@ class GeminiLiveSession:
         self._sessions = session_service
         self._runner = Runner(app_name="reef", agent=self._agent, session_service=self._sessions)
         self._queue = LiveRequestQueue()
-        self._user_id, self._session_id = "local", "voice"
+        self._user_id = "local"
+        # Fresh session_id per launch. Reusing a single "voice" id meant ADK replayed the
+        # prior (possibly Ctrl-C-interrupted, half-written) session's events to Gemini at
+        # setup, which then rejected with 1007 "invalid argument". Durable user state
+        # (preferences, profile) lives in our separate `memory` table and persists fine.
+        self._session_id = f"voice-{int(time.time())}-{uuid.uuid4().hex[:6]}"
 
     async def start(self) -> None:
         existing = await self._sessions.get_session(
