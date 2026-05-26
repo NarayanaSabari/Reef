@@ -50,12 +50,31 @@ uv run pytest -m integration  # integration (needs coral installed; Gemini test 
 
 ## Run the app
 
+Two modes, same underlying voice loop:
+
 ```bash
-# Requires GOOGLE_API_KEY in the environment and `coral` on PATH.
 export $(grep -v '^#' .env | xargs)
-uv run python -m reef.app.main
+
+# 1) Menubar app (recommended) — shows a "Reef" icon in the menu bar.
+#    Click → "Talk to Reef" toggles the mic; "Morning brief now" fires a notification.
+uv run reef-app
+
+# 2) Terminal — same voice loop with a live trace of every transcript / tool / Coral SQL.
+uv run reef        # or:  uv run python -m reef.app.main
 ```
-Then talk: *"What time is it?"*, *"Any PRs waiting on my review?"*, *"Remember I prefer brief mornings."*
+
+Then talk: *"What time is it?"*, *"Any open PRs on my Reef repo?"*, *"Remember I prefer brief mornings."*,
+or the showpiece *"Who am I meeting today that I still owe a reply to?"* (run `scripts/register_demo_sources.py` once first).
+
+**Optional toggles** (env vars, set in `.env` or inline):
+- `REEF_PTT_KEY='<f1>'` — push-to-talk; press the key to toggle the mic (needs Accessibility permission).
+- `REEF_BRIEF_AFTER_SECONDS=120` — fires a scheduled morning-brief notification N seconds after launch (demo of rung 5).
+- `REEF_GH_OWNER` / `REEF_GH_REPO` / `REEF_NAME` — override the default profile seeded into the agent's memory.
+
+**Bundle to a `.app`?** Scaffolding is in `setup.py` + `scripts/build_app.sh`, but py2app currently
+rejects projects that use pyproject.toml `[project] dependencies`. See `setup.py` header for the
+path forward (briefcase is the likely next attempt). The menubar app via `uv run reef-app` is the
+macOS-app experience for now.
 
 For deterministic/offline demo recording, snapshot live sources to JSONL first:
 ```bash

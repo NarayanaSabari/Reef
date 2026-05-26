@@ -14,8 +14,14 @@ dependencies = [
     "pynput",
 ]
 
+[project.scripts]
+reef       = "reef.app.main:cli"       # terminal mode (kept for headless dev)
+reef-app   = "reef.shell.app:main"     # menubar app mode
+
 [dependency-groups]
-dev = ["pytest", "pytest-asyncio", "ruff", "mypy"]
+# py2app currently breaks against setuptools 80+ ("install_requires is no longer supported");
+# pin to a known-working range for bundling. Runtime code doesn't depend on setuptools.
+dev = ["pytest", "pytest-asyncio", "ruff", "mypy", "py2app", "setuptools<70"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

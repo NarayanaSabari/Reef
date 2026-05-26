@@ -148,5 +148,11 @@ async def main() -> None:
         await session.close()
         await sink.close()
 
-if __name__ == "__main__":
+def cli() -> None:
+    """Sync entry point for the `reef` console script (project.scripts in pyproject.toml).
+    The async `main()` is kept as-is so the unit test that asserts iscoroutinefunction passes."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli()
