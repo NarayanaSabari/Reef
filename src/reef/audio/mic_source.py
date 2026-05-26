@@ -7,12 +7,23 @@ from reef.config import Settings
 
 
 class MicAudioSource:
-    """Streams 20 ms 16 kHz mono int16 PCM chunks from the default microphone."""
-    def __init__(self, settings: Settings, blocksize_ms: int = 20):
+    """Streams 20 ms 16 kHz mono int16 PCM chunks from the default microphone.
+
+    Optional `gate`: when provided, mic chunks are only forwarded while the event is set.
+    Used by main.py to implement push-to-talk via a global hotkey (the hotkey toggles
+    the event). If `gate` is None, the mic streams unconditionally (default).
+    """
+    def __init__(
+        self,
+        settings: Settings,
+        blocksize_ms: int = 20,
+        gate: asyncio.Event | None = None,
+    ):
         self._settings = settings
         self._blocksize = settings.input_sample_rate * blocksize_ms // 1000
         self._queue: asyncio.Queue[bytes] = asyncio.Queue()
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._gate = gate
 
     def _callback(self, indata, frames, time_info, status) -> None:
         if self._loop is not None:
@@ -28,7 +39,11 @@ class MicAudioSource:
         stream.start()
         try:
             while True:
-                yield await self._queue.get()
+                chunk = await self._queue.get()
+                # Push-to-talk: drop chunks unless the gate is open.
+                if self._gate is not None and not self._gate.is_set():
+                    continue
+                yield chunk
         finally:
             stream.stop()
             stream.close()
