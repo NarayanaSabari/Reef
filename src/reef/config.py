@@ -9,6 +9,9 @@ def default_db_path() -> str:
     """Absolute path to Reef's local DB (~/.reef/reef.db) so it doesn't depend on CWD."""
     return str(Path.home() / ".reef" / "reef.db")
 
+# Empirically the dated preview is more reliable for our 5+-tool setup than the
+# `-latest` rolling alias (which currently points at a flakier variant). Re-evaluate
+# when this dated tag is retired - until then, override via REEF_MODEL if needed.
 DEFAULT_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"
 
 @dataclass(frozen=True)
