@@ -7,7 +7,7 @@ from google.adk.runners import Runner
 from google.adk.sessions.base_session_service import BaseSessionService
 from google.genai import types
 
-from reef.agent.coral import build_coral_toolset
+from reef.agent.coral_query import coral_query
 from reef.agent.tools import get_current_time, set_timer
 from reef.config import Settings
 from reef.memory.store import MemoryStore
@@ -21,12 +21,13 @@ class GeminiLiveSession:
 
     def __init__(self, settings: Settings, store: MemoryStore, session_service: BaseSessionService):
         self._settings = settings
-        self._coral = build_coral_toolset()
-        tools = [*make_memory_tools(store), get_current_time, set_timer, self._coral]
+        # Voice agent uses a single Coral function tool (not the McpToolset's 5 tools) so the
+        # preview Live models stay reliable across turns (see reef/agent/coral_query.py docstring).
+        tools = [*make_memory_tools(store), get_current_time, set_timer, coral_query]
         self._agent = LlmAgent(
             model=settings.model, name="reef",
             instruction=make_instruction_provider(store),
-            tools=tools,  # type: ignore[arg-type]  # mixed list: Callable + McpToolset; ADK has no stubs
+            tools=tools,
         )
         self._sessions = session_service
         self._runner = Runner(app_name="reef", agent=self._agent, session_service=self._sessions)
@@ -68,4 +69,3 @@ class GeminiLiveSession:
 
     async def close(self) -> None:
         self._queue.close()
-        await self._coral.close()
