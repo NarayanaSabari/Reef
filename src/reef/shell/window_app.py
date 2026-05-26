@@ -101,6 +101,8 @@ class Api:
         self._settings: Settings | None = None
         self._window: webview.Window | None = None
         self._listening = False
+        self._voice_ok = False
+        self._pending_error: dict | None = None
         self._db_path = default_db_path()
 
     def attach_window(self, window: webview.Window) -> None:
@@ -123,9 +125,22 @@ class Api:
 
     def init_route(self) -> dict:
         """First JS call after the page is ready. Decides whether to land the
-        user in onboarding or chat based on whether they've completed setup."""
+        user in onboarding or chat based on whether they've completed setup —
+        and surfaces any startup error (e.g. missing GOOGLE_API_KEY) as a
+        banner so it's visible regardless of route."""
         onboarded = _is_onboarded_sync(self._db_path)
-        return {"route": "chat" if onboarded else "onboarding", "step": 1}
+        return {
+            "route": "chat" if onboarded else "onboarding",
+            "step": 1,
+            "error": self._pending_error,
+            "voice_ok": self._voice_ok,
+        }
+
+    def get_startup_error(self) -> dict | None:
+        """Polled by JS for late-arriving startup errors (the agent thread
+        races the WebView; if init_route runs before _async_main has decided,
+        this catches it)."""
+        return self._pending_error
 
     # --- onboarding -----------------------------------------------------
 
@@ -248,34 +263,92 @@ class Api:
         with contextlib.suppress(Exception):
             self._window.evaluate_js(f"window.appendEvent({payload});")
 
+    def _show_banner(self) -> None:
+        """Push the current pending_error into the WebView as a banner.
+        Safe to call before/after pywebviewready — JS guards re-entry."""
+        if self._window is None or self._pending_error is None:
+            return
+        payload = json.dumps(self._pending_error)
+        with contextlib.suppress(Exception):
+            self._window.evaluate_js(f"window.showBanner({payload});")
+
 
 # ---------------------------------------------------------------------------
 
 
 async def _async_main(api: Api) -> None:
-    """Build the voice stack and run the loop; stays alive until quit_event is set."""
+    """Build the voice stack and run the loop. Stays alive until quit_event is set.
+
+    Designed to **keep the UI usable** even if voice can't start (missing API key,
+    Coral not installed, mic permission, etc.). The store always comes up, so
+    onboarding/settings continue to work; voice failures surface as a banner in
+    the UI and trace.info, not as a dead window."""
     trace.enable()
-    ensure_coral_available()
     db = default_db_path()
     Path(db).parent.mkdir(parents=True, exist_ok=True)
-    settings = Settings.from_env()
     store = MemoryStore(db)
     await store.init()
-    # Seed defaults so a user who skips onboarding still has a working profile.
-    # Onboarding (when completed) overwrites these.
     await _seed_default_profile_if_missing(store)
-    session_service = DatabaseSessionService(db_url=f"sqlite+aiosqlite:///{db}")
 
+    # Set these BEFORE any voice init so JS bridge calls always have a live
+    # loop to hop into (toggle_mic still returns {listening:false}, but
+    # save_profile / get_settings_snapshot / disconnect all work).
     api._loop = asyncio.get_running_loop()
     api._mic_gate = asyncio.Event()        # muted at startup
     api._quit_event = asyncio.Event()
     api._store = store
-    api._settings = settings
 
+    # --- Voice path (may fail; UI must stay alive if it does) -------------
+    try:
+        settings = Settings.from_env()
+        api._settings = settings
+        ensure_coral_available()
+    except ValueError as e:
+        # Missing GOOGLE_API_KEY is the common case — surface a friendly banner
+        # with the exact env var name, and park here until the user quits.
+        api._pending_error = {
+            "title": "Voice disabled — GOOGLE_API_KEY not set",
+            "body": (
+                "Set GOOGLE_API_KEY (or GEMINI_API_KEY) in your .env or shell, "
+                "then relaunch. Onboarding and settings still work without it."
+            ),
+            "detail": str(e),
+        }
+        trace.info(f"voice disabled: {e}")
+        api.push_event("info", "error", str(e))
+        api._show_banner()
+        await api._quit_event.wait()
+        return
+    except FileNotFoundError as e:
+        api._pending_error = {
+            "title": "Coral CLI not found",
+            "body": "Install with `brew install withcoral/tap/coral`, then relaunch.",
+            "detail": str(e),
+        }
+        trace.info(f"coral missing: {e}")
+        api._show_banner()
+        await api._quit_event.wait()
+        return
+
+    session_service = DatabaseSessionService(db_url=f"sqlite+aiosqlite:///{db}")
     source = MicAudioSource(settings, gate=api._mic_gate)
     sink = SpeakerAudioSink(settings)
     session = GeminiLiveSession(settings, store, session_service)
-    await session.start()
+
+    try:
+        await session.start()
+    except Exception as e:  # noqa: BLE001
+        api._pending_error = {
+            "title": "Voice session failed to start",
+            "body": "Check the API key, network, and model name. The UI still works.",
+            "detail": f"{type(e).__name__}: {e}",
+        }
+        trace.info(f"gemini start failed: {type(e).__name__}: {e}")
+        api._show_banner()
+        await api._quit_event.wait()
+        return
+
+    api._voice_ok = True
     trace.info(f"window app ready — model={settings.model}")
 
     loop_task = asyncio.create_task(VoiceLoop(source, sink, session).run())

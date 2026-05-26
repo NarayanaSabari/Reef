@@ -244,10 +244,44 @@ button.linkish:hover{color:var(--ink2)}
 .list-rows .row .text{font-family:var(--sans);font-size:13px;color:var(--ink);flex:1}
 .list-rows .empty{padding:14px;font-family:var(--mono);font-size:11px;color:var(--ink4);
   text-align:center}
+
+/* ─── Top banner (startup errors: API key missing, Coral missing, …) ────── */
+.banner{position:absolute;left:0;right:0;top:0;z-index:100;
+  background:#fff7e6;border-bottom:1px solid #e2c48a;
+  padding:10px 16px 10px 18px;display:none;align-items:flex-start;gap:14px;
+  font-family:var(--sans);font-size:12.5px;color:#5b4516}
+.banner.show{display:flex}
+.banner::before{content:'!';flex-shrink:0;width:20px;height:20px;border-radius:50%;
+  background:#c98a16;color:#fff;font-family:var(--mono);font-weight:600;font-size:12px;
+  display:flex;align-items:center;justify-content:center;margin-top:1px}
+.banner .b-body{flex:1;line-height:1.45}
+.banner .b-title{font-weight:600;color:#3d2e0e;margin-bottom:2px}
+.banner .b-detail{font-family:var(--mono);font-size:10.5px;color:#7a5e22;margin-top:4px;
+  opacity:0;max-height:0;overflow:hidden;transition:opacity .15s,max-height .15s}
+.banner.expanded .b-detail{opacity:1;max-height:140px;margin-top:6px}
+.banner .b-toggle{background:none;border:none;color:#7a5e22;font-family:var(--mono);
+  font-size:10.5px;padding:0;margin-top:6px;cursor:pointer;text-decoration:underline}
+.banner .b-close{background:none;border:none;color:#7a5e22;font-family:var(--mono);
+  font-size:14px;padding:2px 6px;cursor:pointer}
+.banner .b-close:hover{color:#3d2e0e}
+/* When the banner is visible, nudge content down a hair so headers don't collide */
+#app.has-banner .route-chat .chat-header,
+#app.has-banner .route-onboarding{padding-top:64px}
 </style>
 </head>
 <body>
 <div id="app" data-route="onboarding">
+
+  <!-- ─── Startup banner (api key missing, coral missing, …) ────────────── -->
+  <div id="banner" class="banner" role="alert">
+    <div class="b-body">
+      <div class="b-title" id="banner-title">Heads up</div>
+      <div class="b-msg" id="banner-msg"></div>
+      <button class="b-toggle" id="banner-toggle" onclick="toggleBannerDetail()" style="display:none">Show technical detail</button>
+      <div class="b-detail" id="banner-detail"></div>
+    </div>
+    <button class="b-close" onclick="dismissBanner()" title="Dismiss">✕</button>
+  </div>
 
   <!-- ─── ONBOARDING ROUTE (4-step wizard) ──────────────────────────────── -->
   <div class="route route-onboarding">
@@ -658,12 +692,53 @@ async function onMicToggle(){
 }
 window.onMicToggle = onMicToggle;
 
+// ─── banner (startup errors) ────────────────────────────────────────────
+function showBanner(err){
+  if (!err) return;
+  $('#banner-title').textContent = err.title || 'Heads up';
+  $('#banner-msg').textContent = err.body || '';
+  const toggle = $('#banner-toggle');
+  const detail = $('#banner-detail');
+  if (err.detail){
+    detail.textContent = err.detail;
+    toggle.style.display = 'inline-block';
+  } else {
+    toggle.style.display = 'none';
+  }
+  $('#banner').classList.add('show');
+  app.classList.add('has-banner');
+}
+function toggleBannerDetail(){
+  const b = $('#banner');
+  const expanded = b.classList.toggle('expanded');
+  $('#banner-toggle').textContent = expanded ? 'Hide technical detail' : 'Show technical detail';
+}
+function dismissBanner(){
+  $('#banner').classList.remove('show','expanded');
+  app.classList.remove('has-banner');
+}
+window.showBanner = showBanner;
+
 // ─── boot ───────────────────────────────────────────────────────────────
 // Python decides the initial route via init_route() after the WebView is ready.
 window.addEventListener('pywebviewready', async () => {
   const init = await window.pywebview.api.init_route();
   setRoute(init.route);
   if (init.route === 'onboarding') showOnbStep(init.step || 1);
+  if (init.error) showBanner(init.error);
+
+  // The agent thread may finish startup AFTER pywebviewready (race). Poll
+  // for a late-arriving error for a few seconds so the banner still appears.
+  let tries = 0;
+  const poll = setInterval(async () => {
+    if (tries++ > 12 || $('#banner').classList.contains('show')) {
+      clearInterval(poll); return;
+    }
+    try {
+      const err = await window.pywebview.api.get_startup_error();
+      if (err) { showBanner(err); clearInterval(poll); }
+    } catch(_){}
+  }, 500);
 });
 
 // Keyboard niceties

@@ -37,9 +37,21 @@ def test_reef_window_app_imports():
         "init_route", "toggle_mic", "brief_now", "push_event",
         "save_profile", "complete_onboarding",
         "stub_mark_connected", "disconnect_google",
-        "get_settings_snapshot",
+        "get_settings_snapshot", "get_startup_error",
     ):
         assert callable(getattr(api, name)), f"Api.{name} missing"
+
+    # init_route must always include the error/voice_ok keys so the JS-side
+    # banner logic can rely on them existing.
+    route = api.init_route()
+    assert set(["route", "step", "error", "voice_ok"]).issubset(route.keys())
+    assert route["error"] is None         # nothing failed yet
+    assert route["voice_ok"] is False     # async thread hasn't set it yet
+
+    # The HTML must wire the banner so a missing api key actually surfaces.
+    assert 'id="banner"' in html
+    assert "showBanner" in html
+    assert "get_startup_error" in html
 
 
 def test_is_onboarded_sync_handles_missing_and_present(tmp_path):
