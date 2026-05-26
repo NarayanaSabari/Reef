@@ -36,6 +36,40 @@ async def test_run_completes_when_streams_exhausted():
     assert sess.sent == [b"a"]
 
 
+async def test_pump_mic_drops_chunks_while_reef_is_speaking():
+    """Half-duplex: if `_last_audio_out` is recent, mic chunks are dropped to avoid echo."""
+    src = FakeAudioSource([b"x", b"y", b"z"])
+    sink = FakeAudioSink()
+    sess = FakeVoiceSession(events=[])
+    loop = VoiceLoop(src, sink, sess)
+    loop._stop = asyncio.Event()
+    loop._last_audio_out = asyncio.get_running_loop().time()  # "just spoke"
+    await loop._pump_mic()
+    assert sess.sent == []  # all chunks within the mute window were dropped
+
+
+async def test_pump_mic_sends_chunks_when_not_speaking():
+    """When `_last_audio_out` is 0 (never spoke) chunks go through normally."""
+    src = FakeAudioSource([b"x", b"y"])
+    sink = FakeAudioSink()
+    sess = FakeVoiceSession(events=[])
+    loop = VoiceLoop(src, sink, sess)
+    loop._stop = asyncio.Event()
+    loop._last_audio_out = 0.0
+    await loop._pump_mic()
+    assert sess.sent == [b"x", b"y"]
+
+
+async def test_interrupted_event_reopens_the_mic_immediately():
+    """Barge-in path: Interrupted resets `_last_audio_out` to 0 so the mic resumes at once."""
+    src = FakeAudioSource([])
+    sink = FakeAudioSink()
+    sess = FakeVoiceSession(events=[AudioOut(b"a"), Interrupted()])
+    loop = VoiceLoop(src, sink, sess)
+    await asyncio.wait_for(loop.run(), timeout=1.0)
+    assert loop._last_audio_out == 0.0
+
+
 async def test_run_returns_when_events_end_even_with_infinite_source():
     """Production case: a real mic never exhausts. When the Gemini session ends,
     run() must return cleanly instead of hanging on the mic pump."""
